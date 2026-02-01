@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block title %}Hospital Monitoring System - Infrastructure Monitoring{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .iframe-container {
+        position: relative;
+        overflow: hidden;
+        width: 100%;
+        border-radius: 4px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    .iframe-container iframe {
+        border: none;
+        width: 100%;
+    }
+    .grafana-preview-container {
+        min-height: 500px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="container-fluid mt-3">
+        <h1 class="mb-4">Infrastructure Monitoring</h1>
+        
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Monitoring Tools</h5>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary" id="btn-grafana">Grafana</button>
+                            <button class="btn btn-sm btn-outline-primary" id="btn-prometheus">Prometheus</button>
+                            <button class="btn btn-sm btn-outline-primary" id="btn-alertmanager">AlertManager</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="monitoring-content">
+                            <div id="grafana-section" class="monitoring-section">
+                                <h3>Grafana Dashboards</h3>
+                                <p>Access your Grafana dashboards to view detailed metrics visualization.</p>
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">Dashboard Information</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="grafana-preview" class="grafana-preview-container">
+                                            <!-- Embedded Grafana Dashboard -->
+                                            <div class="iframe-container">
+                                                <iframe src="{{ grafana_url }}/d/patient-vitals/patient-vitals-dashboard?orgId=1&refresh=5s&kiosk" width="100%" height="500" frameborder="0" allowfullscreen></iframe>
+                                            </div>
+                                            <p class="text-muted text-center mt-2">Last updated: <span id="grafana-preview-time">Now</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-center mt-3">
+                                    <a href="{{ grafana_url }}/d/patient-vitals/patient-vitals-dashboard?orgId=1&refresh=5s" target="_blank" class="btn btn-primary">View Full Dashboard</a>
+                                    <a href="{{ grafana_url }}" target="_blank" class="btn btn-outline-primary">Grafana Home</a>
+                                    <p class="mt-2"><small>Default credentials: admin/admin</small></p>
+                                </div>
+                                <script>
+                                    // Function to refresh the Grafana preview time
+                                    function refreshGrafanaTime() {
+                                        document.getElementById('grafana-preview-time').textContent = new Date().toLocaleTimeString();
+                                    }
+                                    
+                                    // Refresh every 30 seconds
+                                    setInterval(refreshGrafanaTime, 30000);
+                                </script>
+                            </div>
+                            
+                            <div id="prometheus-section" class="monitoring-section d-none">
+                                <h3>Prometheus Metrics</h3>
+                                <p>Access your Prometheus metrics and query interface.</p>
+                                <div class="iframe-container">
+                                    <iframe src="{{ prometheus_url }}" width="100%" height="600" frameborder="0"></iframe>
+                                </div>
+                                <div class="text-center mt-3">
+                                    <a href="{{ prometheus_url }}" target="_blank" class="btn btn-primary">Open in New Window</a>
+                                </div>
+                            </div>
+                            
+                            <div id="alertmanager-section" class="monitoring-section d-none">
+                                <h3>AlertManager Alerts</h3>
+                                <p>View and manage active alerts from AlertManager.</p>
+                                <div class="iframe-container">
+                                    <iframe src="{{ alertmanager_url }}" width="100%" height="600" frameborder="0"></iframe>
+                                </div>
+                                <div class="text-center mt-3">
+                                    <a href="{{ alertmanager_url }}" target="_blank" class="btn btn-primary">Open in New Window</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">System Status Overview</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Service</th>
+                                        <th>Status</th>
+                                        <th>Uptime</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="services-table">
+                                    <!-- Dynamic content will be loaded here -->
+                                    <tr>
+                                        <td colspan="3" class="text-center">Loading service status...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Recent Alerts</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="recent-alerts">
+                            <!-- Dynamic content will be loaded here -->
+                            <p class="text-center">Loading recent alerts...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tab switching
+            const btnGrafana = document.getElementById('btn-grafana');
+            const btnPrometheus = document.getElementById('btn-prometheus');
+            const btnAlertmanager = document.getElementById('btn-alertmanager');
+            
+            const grafanaSection = document.getElementById('grafana-section');
+            const prometheusSection = document.getElementById('prometheus-section');
+            const alertmanagerSection = document.getElementById('alertmanager-section');
+            
+            btnGrafana.addEventListener('click', function() {
+                grafanaSection.classList.remove('d-none');
+                prometheusSection.classList.add('d-none');
+                alertmanagerSection.classList.add('d-none');
+                
+                btnGrafana.classList.add('active');
+                btnPrometheus.classList.remove('active');
+                btnAlertmanager.classList.remove('active');
+            });
+            
+            btnPrometheus.addEventListener('click', function() {
+                grafanaSection.classList.add('d-none');
+                prometheusSection.classList.remove('d-none');
+                alertmanagerSection.classList.add('d-none');
+                
+                btnGrafana.classList.remove('active');
+                btnPrometheus.classList.add('active');
+                btnAlertmanager.classList.remove('active');
+            });
+            
+            btnAlertmanager.addEventListener('click', function() {
+                grafanaSection.classList.add('d-none');
+                prometheusSection.classList.add('d-none');
+                alertmanagerSection.classList.remove('d-none');
+                
+                btnGrafana.classList.remove('active');
+                btnPrometheus.classList.remove('active');
+                btnAlertmanager.classList.add('active');
+            });
+            
+            // Fetch system status initially and then every 30 seconds
+            function updateSystemStatus() {
+                fetch('/api/system-status')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            const servicesTable = document.getElementById('services-table');
+                            let tableHtml = '';
+                            
+                            // Service names for display
+                            const serviceNames = {
+                                'main_host': 'Main Host',
+                                'ml_service': 'ML Service',
+                                'patient_simulator': 'Patient Simulator',
+                                'grafana': 'Grafana',
+                                'prometheus': 'Prometheus',
+                                'alertmanager': 'AlertManager'
+                            };
+                            
+                            // Generate table rows
+                            for (const [service, details] of Object.entries(data.system_status)) {
+                                // Determine badge color based on status
+                                let badgeClass = 'bg-success';
+                                let statusText = 'Online';
+                                
+                                if (details.status === 'warning') {
+                                    badgeClass = 'bg-warning';
+                                    statusText = 'Warning';
+                                } else if (details.status === 'offline') {
+                                    badgeClass = 'bg-danger';
+                                    statusText = 'Offline';
+                                }
+                                
+                                tableHtml += `
+                                    <tr>
+                                        <td>${serviceNames[service] || service}</td>
+                                        <td><span class="badge ${badgeClass}">${statusText}</span></td>
+                                        <td>${details.uptime}</td>
+                                    </tr>
+                                `;
+                            }
+                            
+                            servicesTable.innerHTML = tableHtml;
+                        } else {
+                            console.error('Error fetching system status:', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching system status:', error);
+                    });
+            }
+            
+            // Fetch recent alerts initially and then every 30 seconds
+            function updateRecentAlerts() {
+                fetch('/api/recent-alerts')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            const alertsContainer = document.getElementById('recent-alerts');
+                            let alertsHtml = '';
+                            
+                            if (data.alerts.length === 0) {
+                                alertsHtml = '<p class="text-center">No recent alerts</p>';
+                            } else {
+                                // Generate alert divs
+                                data.alerts.forEach(alert => {
+                                    alertsHtml += `
+                                        <div class="alert alert-${alert.level}">
+                                            <strong>${alert.level === 'warning' ? 'Warning' : 'Critical'}:</strong> ${alert.message}
+                                            <small class="d-block mt-1">${alert.timestamp}</small>
+                                        </div>
+                                    `;
+                                });
+                            }
+                            
+                            alertsContainer.innerHTML = alertsHtml;
+                        } else {
+                            console.error('Error fetching recent alerts:', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching recent alerts:', error);
+                    });
+            }
+            
+            // Update system status and alerts initially
+            updateSystemStatus();
+            updateRecentAlerts();
+            
+            // Setup refresh intervals
+            setInterval(updateSystemStatus, 30000); // Refresh every 30 seconds
+            setInterval(updateRecentAlerts, 60000); // Refresh every 60 seconds
+            
+            // Activate Grafana by default
+            btnGrafana.click();
+        });
+</script>
+{% endblock %}

@@ -1,0 +1,268 @@
+networks:
+  hospital_network:
+    driver: bridge
+
+services:
+  main_host:
+    build: ./services/main_host
+    container_name: main_host
+    networks:
+      - hospital_network
+    ports:
+      - "8000:8000"  # Expose port 8000 for Flask app
+    env_file:
+      - ./config/environment/development.env
+
+  hospital_1:
+    image: nginx:latest
+    container_name: hospital_1
+    networks:
+      - hospital_network
+    depends_on:
+      - main_host
+
+  department_1:
+    image: nginx:latest
+    container_name: department_1
+    networks:
+      - hospital_network
+    depends_on:
+      - hospital_1
+
+  department_2:
+    image: nginx:latest
+    container_name: department_2
+    networks:
+      - hospital_network
+    depends_on:
+      - hospital_1
+
+  ward_1:
+    image: nginx:latest
+    container_name: ward_1
+    networks:
+      - hospital_network
+    depends_on:
+      - department_1
+
+  ward_2:
+    image: nginx:latest
+    container_name: ward_2
+    networks:
+      - hospital_network
+    depends_on:
+      - department_1
+
+  ward_3:
+    image: nginx:latest
+    container_name: ward_3
+    networks:
+      - hospital_network
+    depends_on:
+      - department_2
+
+  ward_4:
+    image: nginx:latest
+    container_name: ward_4
+    networks:
+      - hospital_network
+    depends_on:
+      - department_2
+
+  patient_1:
+    image: nginx:latest
+    container_name: patient_1
+    networks:
+      - hospital_network
+    depends_on:
+      - ward_1
+
+  patient_2:
+    image: nginx:latest
+    container_name: patient_2
+    networks:
+      - hospital_network
+    depends_on:
+      - ward_1
+
+  patient_3:
+    image: nginx:latest
+    container_name: patient_3
+    networks:
+      - hospital_network
+    depends_on:
+      - ward_1
+
+  patient_4:
+    image: nginx:latest
+    container_name: patient_4
+    networks:
+      - hospital_network
+    depends_on:
+      - ward_2
+
+  patient_5:
+    image: nginx:latest
+    container_name: patient_5
+    networks:
+      - hospital_network
+    depends_on:
+      - ward_2
+
+  patient_6:
+    image: nginx:latest
+    container_name: patient_6
+    networks:
+      - hospital_network
+    depends_on:
+      - ward_2
+
+  patient_7:
+    image: nginx:latest
+    container_name: patient_7
+    networks:
+      - hospital_network
+    depends_on:
+      - ward_3
+
+  patient_8:
+    image: nginx:latest
+    container_name: patient_8
+    networks:
+      - hospital_network
+    depends_on:
+      - ward_3
+
+  patient_9:
+    image: nginx:latest
+    container_name: patient_9
+    networks:
+      - hospital_network
+    depends_on:
+      - ward_3
+
+  patient_10:
+    image: nginx:latest
+    container_name: patient_10
+    networks:
+      - hospital_network
+    depends_on:
+      - ward_4
+
+  patient_11:
+    image: nginx:latest
+    container_name: patient_11
+    networks:
+      - hospital_network
+    depends_on:
+      - ward_4
+
+  patient_12:
+    image: nginx:latest
+    container_name: patient_12
+    networks:
+      - hospital_network
+    depends_on:
+      - ward_4
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./config/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml 
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - hospital_network
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:  
+      - "3001:3000"  # Changed to default Grafana port
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "admin"  # Set admin password for Grafana
+      GF_SECURITY_ALLOW_EMBEDDING: "true"  # Allow embedding in iframes
+      GF_SECURITY_COOKIE_SAMESITE: "disabled"  # Allow cookies in iframes
+      GF_SECURITY_X_FRAME_OPTIONS: ""  # Remove X-Frame-Options header
+      # Pass Prometheus URL for datasource configuration
+      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://prometheus:9090}
+    volumes:
+      - grafana-data:/var/lib/grafana  # Persist Grafana data
+      - ./config/grafana/dashboards:/etc/grafana/dashboards
+      - ./config/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - hospital_network
+
+  patient_simulator:
+    build: ./services/patient_simulator
+    container_name: patient_simulator
+    networks:
+      - hospital_network
+    depends_on:
+      - main_host
+    volumes:
+      - ./data/patient_samples:/app/data
+    env_file:
+      - ./config/environment/development.env
+  alertmanager:
+    image: prom/alertmanager
+    container_name: alertmanager
+    ports:
+      - "9093:9093"
+    networks:
+      - hospital_network  
+    volumes:
+      - ./config/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+  ml_service:
+    build: ./services/ml_service
+    container_name: ml_service
+    ports:
+      - "6000:6000"
+    networks:
+      - hospital_network
+    volumes:
+      - ./services/ml_service:/app
+    env_file:
+      - ./config/environment/development.env
+
+  web_dashboard:
+    build: ./services/web_dashboard
+    container_name: web_dashboard
+    ports:
+      - "5000:5000"  # Expose port 5000 for the web dashboard
+    networks:
+      - hospital_network
+    depends_on:
+      - main_host
+      - ml_service
+    volumes:
+      - ./services/web_dashboard:/app
+      - ./services/web_dashboard/instance:/app/instance  # Persist SQLite database
+    env_file:
+      - ./config/environment/development.env
+    environment:
+      # Database configuration - SQLite for local development
+      - DATABASE_URL=sqlite:///instance/healthcare.db
+      # Service URLs
+      - MAIN_HOST_URL=${MAIN_HOST_URL:-http://main_host:8000}
+      - ML_SERVICE_URL=${ML_SERVICE_URL:-http://ml_service:6000}
+      # Monitoring URLs - local development
+      - GRAFANA_URL=${GRAFANA_URL:-http://grafana:3000}
+      - PROMETHEUS_URL=${PROMETHEUS_URL:-http://prometheus:9090}
+      - ALERTMANAGER_URL=${ALERTMANAGER_URL:-http://alertmanager:9093}
+      - SECRET_KEY=${SECRET_KEY:-dev-key-please-change}
+
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+    

@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard | Hospital Monitoring System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s;
+    }
+    .stats-card:hover {
+        transform: translateY(-5px);
+    }
+    .stats-icon {
+        font-size: 2rem;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 20px;
+    }
+    .alert-status {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+    .patient-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .quick-action-btn {
+        width: 100%;
+        margin-bottom: 10px;
+        text-align: left;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1>Dashboard</h1>
+        <p class="lead">Welcome back, {{ current_user.first_name }}!</p>
+    </div>
+    <div class="col-auto">
+        <a href="{{ url_for('main.monitoring') }}" class="btn btn-primary">
+            <i class="bi bi-heart-pulse"></i> Live Monitoring
+        </a>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stats-card mb-3">
+            <div class="card-body d-flex align-items-center">
+                <div class="stats-icon bg-primary text-white">
+                    <i class="bi bi-people"></i>
+                </div>
+                <div>
+                    <h6 class="card-subtitle mb-1 text-muted">Total Patients</h6>
+                    <h3 class="card-title mb-0">24</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stats-card mb-3">
+            <div class="card-body d-flex align-items-center">
+                <div class="stats-icon bg-success text-white">
+                    <i class="bi bi-clipboard2-check"></i>
+                </div>
+                <div>
+                    <h6 class="card-subtitle mb-1 text-muted">Normal Status</h6>
+                    <h3 class="card-title mb-0">19</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stats-card mb-3">
+            <div class="card-body d-flex align-items-center">
+                <div class="stats-icon bg-warning text-white">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+                <div>
+                    <h6 class="card-subtitle mb-1 text-muted">Warnings</h6>
+                    <h3 class="card-title mb-0">4</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stats-card mb-3">
+            <div class="card-body d-flex align-items-center">
+                <div class="stats-icon bg-danger text-white">
+                    <i class="bi bi-exclamation-circle"></i>
+                </div>
+                <div>
+                    <h6 class="card-subtitle mb-1 text-muted">Critical Alerts</h6>
+                    <h3 class="card-title mb-0">1</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Patient List -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Recent Patients</h5>
+                <a href="{{ url_for('patients.list_patients') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group patient-list">
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">John Doe</h6>
+                            <span class="badge bg-danger alert-status">Critical</span>
+                        </div>
+                        <p class="mb-1">Room 101 • ID: P001</p>
+                        <small class="text-muted">Heart Rate: 135 bpm (High)</small>
+                    </div>
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Jane Smith</h6>
+                            <span class="badge bg-warning alert-status">Warning</span>
+                        </div>
+                        <p class="mb-1">Room 102 • ID: P002</p>
+                        <small class="text-muted">Blood Oxygen: 92% (Low)</small>
+                    </div>
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Robert Johnson</h6>
+                            <span class="badge bg-warning alert-status">Warning</span>
+                        </div>
+                        <p class="mb-1">Room 103 • ID: P003</p>
+                        <small class="text-muted">Temperature: 38.5°C (Elevated)</small>
+                    </div>
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Maria Garcia</h6>
+                            <span class="badge bg-warning alert-status">Warning</span>
+                        </div>
+                        <p class="mb-1">Room 104 • ID: P004</p>
+                        <small class="text-muted">Blood Pressure: 145/95 (High)</small>
+                    </div>
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">William Brown</h6>
+                            <span class="badge bg-success alert-status">Normal</span>
+                        </div>
+                        <p class="mb-1">Room 105 • ID: P005</p>
+                        <small class="text-muted">All vitals normal</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions and Alerts -->
+    <div class="col-md-6">
+        <div class="row">
+            <!-- Quick Actions -->
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Quick Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <a href="{{ url_for('patients.create_patient') }}" class="btn btn-outline-primary quick-action-btn">
+                                    <i class="bi bi-person-plus"></i> Add New Patient
+                                </a>
+                            </div>
+                            <div class="col-md-6">
+                                <a href="{{ url_for('main.monitoring') }}" class="btn btn-outline-primary quick-action-btn">
+                                    <i class="bi bi-heart-pulse"></i> Monitoring Dashboard
+                                </a>
+                            </div>
+                            <div class="col-md-6">
+                                <a href="#" class="btn btn-outline-primary quick-action-btn">
+                                    <i class="bi bi-bell"></i> View All Alerts
+                                </a>
+                            </div>
+                            <div class="col-md-6">
+                                <a href="#" class="btn btn-outline-primary quick-action-btn">
+                                    <i class="bi bi-file-earmark-text"></i> Generate Report
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- System Status -->
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">System Status</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-server text-success me-2"></i> Main Host
+                                </div>
+                                <span class="badge bg-success">Online</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-cpu text-success me-2"></i> ML Service
+                                </div>
+                                <span class="badge bg-success">Online</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-database text-success me-2"></i> Local Database
+                                </div>
+                                <span class="badge bg-success">Connected</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-graph-up text-success me-2"></i> Grafana
+                                </div>
+                                <span class="badge bg-success">Online</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

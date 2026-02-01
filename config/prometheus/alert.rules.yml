@@ -1,0 +1,65 @@
+groups:
+  - name: hospital-vital-alerts
+    rules:
+      - alert: LowSpO2
+        expr: spo2_percent < 90
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low SpO2 for patient {{ $labels.patient_id }}"
+          description: "SpO2 below 90% for more than 1 minute."
+
+      - alert: AnomalousHeartRate
+        expr: heart_rate < 50 or heart_rate > 120
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Abnormal Heart Rate for patient {{ $labels.patient_id }}"
+          description: "Heart rate is outside the normal range (50-120 bpm)."
+
+      - alert: AnomalousBPSystolic
+        expr: bp_systolic < 90 or bp_systolic > 140
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Abnormal BP Systolic for patient {{ $labels.patient_id }}"
+          description: "Systolic BP is outside the normal range (90-140 mmHg)."
+
+      - alert: AnomalousBPDiastolic
+        expr: bp_diastolic < 55 or bp_diastolic > 95
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Abnormal BP Diastolic for patient {{ $labels.patient_id }}"
+          description: "Diastolic BP is outside the normal range (55-95 mmHg)."
+
+      - alert: AnomalousRespiratoryRate
+        expr: respiratory_rate < 10 or respiratory_rate > 25
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Abnormal Respiratory Rate for patient {{ $labels.patient_id }}"
+          description: "Respiratory rate is outside the normal range (10-25 breaths/min)."
+
+      - alert: LowETCO2
+        expr: etco2 < 30
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low ETCO2 for patient {{ $labels.patient_id }}"
+          description: "ETCO2 is below 30 mmHg."
+
+      - alert: HighETCO2
+        expr: etco2 > 45
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High ETCO2 for patient {{ $labels.patient_id }}"
+          description: "ETCO2 is above 45 mmHg."

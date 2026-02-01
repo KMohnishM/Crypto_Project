@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block title %}Access Denied | Hospital Monitoring System{% endblock %}
+
+{% block content %}
+<div class="text-center py-5">
+    <div class="display-1 text-danger mb-4">
+        <i class="bi bi-shield-lock"></i>
+    </div>
+    <h1 class="display-4">Access Denied</h1>
+    <p class="lead">You don't have permission to access this resource.</p>
+    
+    <div class="alert alert-warning mt-4 col-md-6 mx-auto">
+        <h4 class="alert-heading">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            Permission Required
+        </h4>
+        <p>Your current role ({{ current_user.role }}) doesn't have the necessary permissions to view this page.</p>
+        <hr>
+        <p class="mb-0">If you believe this is an error, please contact the system administrator.</p>
+    </div>
+    
+    <div class="mt-5">
+        <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+            <i class="bi bi-house-door"></i> Back to Dashboard
+        </a>
+        
+        <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-secondary ms-2">
+            <i class="bi bi-box-arrow-right"></i> Logout
+        </a>
+    </div>
+</div>
+{% endblock %}

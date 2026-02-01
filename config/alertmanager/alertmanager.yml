@@ -1,0 +1,16 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: "email"
+
+receivers:
+  - name: "email"
+    email_configs:
+      - to: "kmohnishm+alerts@gmail.com"
+        from: "kmohnishm@gmail.com"
+        smarthost: "smtp.gmail.com:587"
+        auth_username: "kmohnishm@gmail.com"
+        auth_password: "dzan shhc kteb eaqd"
+        require_tls: true
+        send_resolved: true  # Send notifications for resolved alerts too
