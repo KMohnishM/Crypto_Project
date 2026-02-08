@@ -1,5 +1,6 @@
 """
-Modified model.py with debug information for testing
+ML Service with JWT Authentication
+Provides anomaly detection with secure service-to-service authentication
 """
 
 from flask import Flask, request, jsonify
@@ -8,8 +9,27 @@ import numpy as np
 import pandas as pd
 import joblib
 import os
+import sys
+
+# Add common directory for authentication
+sys.path.insert(0, '/app/common')
+
+try:
+    from service_auth import require_service_auth, optional_service_auth
+    AUTH_AVAILABLE = True
+except ImportError:
+    print("⚠️  WARNING: Service authentication not available - running in open mode")
+    AUTH_AVAILABLE = False
+    # Dummy decorator for when auth module is not available
+    def require_service_auth(f):
+        return f
+    def optional_service_auth(f):
+        return f
 
 app = Flask(__name__)
+
+# Configuration
+ENABLE_SERVICE_AUTH = os.getenv('ENABLE_SERVICE_AUTH', 'false').lower() == 'true'
 
 MODEL_FILENAME = "anomaly_model.pkl"  # Updated to match the model name in m.py
 
@@ -51,8 +71,9 @@ if __name__ == "__main__":  # Only load the model if running as the main module
         model = joblib.load(MODEL_FILENAME)
         print(f"Model loaded from {MODEL_FILENAME}")
 
-# Predict route
+# Predict route with required authentication
 @app.route("/predict", methods=["POST"])
+@require_service_auth
 def predict():
     # Load model if not already loaded
     if 'model' not in globals():
@@ -61,6 +82,14 @@ def predict():
             model = joblib.load(MODEL_FILENAME)
         else:
             model = train_model()
+    
+    # Log authentication status (should always be authenticated now)
+    if AUTH_AVAILABLE and hasattr(request, 'authenticated') and request.authenticated:
+        service_name = getattr(request, 'service_name', 'unknown')
+        print(f"🔐 Authenticated request from: {service_name}")
+    else:
+        # This shouldn't happen with @require_service_auth
+        print(f"⚠️  Authentication bypass detected!")
     
     input_data = request.json
     print(f"DEBUG: Received input data: {input_data}")

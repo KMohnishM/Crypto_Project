@@ -6,6 +6,6 @@ COPY generate_excel.py .
 COPY send_data.py .
 COPY requirements.txt .
 
-RUN pip install requests pandas openpyxl 
+RUN pip install --no-cache-dir -r requirements.txt
 
 CMD ["python", "send_data.py"]

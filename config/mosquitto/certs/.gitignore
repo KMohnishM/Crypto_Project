@@ -1,0 +1,8 @@
+# Ignore private keys for security
+*.key
+*.srl
+
+# Keep certificates for reference (but rotate in production)
+# ca.crt
+# server.crt
+# client.crt

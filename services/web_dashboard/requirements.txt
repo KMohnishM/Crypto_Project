@@ -8,5 +8,7 @@ python-dotenv==0.19.0
 flask-login==0.5.0
 flask-sqlalchemy==2.5.1
 sqlalchemy<1.4.0
+pysqlcipher3==1.2.0
+cryptography==41.0.7
 # Uncomment the line below if you want to use image manipulation features
 # pillow==9.5.0

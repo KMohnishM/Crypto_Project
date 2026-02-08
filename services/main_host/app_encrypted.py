@@ -37,7 +37,7 @@ USE_TLS = os.getenv('USE_TLS', 'true').lower() == 'true'
 key_manager = None
 if CRYPTO_AVAILABLE:
     try:
-        key_manager = KeyManager("/app/keys/device_keys.json")
+        key_manager = KeyManager("/app/keys/backend_keys.json")
         print("🔑 Backend key manager initialized")
     except Exception as e:
         print(f"⚠️  Key manager initialization failed: {e}")
@@ -132,8 +132,7 @@ def on_mqtt_message(client, userdata, msg):
             patient_id = device_id.split('_')[-1] if '_' in device_id else 'unknown'
         
         # Infer department from ward (simplified)
-        ward_str = str(ward)  # Handle both string and int ward values
-        dept = ward_str.replace('ward_', 'dept_') if 'ward_' in ward_str else f'dept_{ward_str}'
+        dept = ward.replace('ward_', 'dept_')
         
         if is_encrypted:
             # Handle encrypted payload
@@ -153,10 +152,6 @@ def on_mqtt_message(client, userdata, msg):
                     'ciphertext': mqtt_payload['ciphertext'],
                     'nonce': mqtt_payload['nonce']
                 })
-                
-                # DEBUG: Check what we received
-                logging.info(f"🔍 DEBUG {device_id}: ct_len={len(ciphertext)}, nonce_len={len(nonce)}")
-                logging.info(f"🔍 DEBUG {device_id}: nonce_hex={nonce.hex()}")
                 
                 # Get device key
                 device_key = key_manager.get_device_key(device_id)

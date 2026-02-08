@@ -1,6 +1,17 @@
-# Healthcare IoT Monitoring System
+# Healthcare IoT Monitoring System with Layered Security
 
-A real-time patient monitoring system built with Docker, Prometheus, Grafana, and machine learning for anomaly detection in healthcare environments.
+A real-time patient monitoring system built with Docker, Prometheus, Grafana, and machine learning for anomaly detection in healthcare environments. Features **defense-in-depth security architecture** with TLS encryption, Ascon-128 authenticated encryption, per-device key management, JWT service authentication, and SQLCipher database encryption.
+
+## 🔒 Security Features
+
+This system implements a **5-phase layered security architecture** to protect sensitive patient health information:
+
+- **Phase 1: TLS 1.2 Transport Encryption** - Secure MQTT communication with certificate-based authentication
+- **Phase 2: Ascon-128 Payload Encryption** - Authenticated encryption for all patient vitals data
+- **Phase 3: Per-Device Key Management** - Unique encryption keys for each patient device
+- **Phase 4: JWT Service Authentication** - Token-based authentication between microservices
+- **Phase 4: SQLCipher Database Encryption** - Encrypted SQLite database for patient records
+- **Phase 5: Complete Docker Deployment** - Containerized architecture for production use
 
 ## 📋 What This Does
 
@@ -9,20 +20,32 @@ This system monitors patient vital signs (heart rate, SpO2, blood pressure, temp
 - Real-time visualization through Grafana dashboards
 - Automated alerting for abnormal vital signs
 - Machine learning-based anomaly detection
-- Web dashboard for patient management
+- Secure web dashboard for patient management (encrypted database)
+- End-to-end encryption for all patient data
 - Ready for hardware sensor integration (Arduino, ESP32, Raspberry Pi)
 
 ## 🏗️ Architecture
 
-The system consists of microservices running in Docker containers:
+The system consists of microservices running in Docker containers with integrated security:
 
-- **Main Host**: Collects patient data and exposes metrics to Prometheus
-- **Web Dashboard**: Flask-based UI for patient management (SQLite database)
-- **ML Service**: Analyzes vitals and detects anomalies using machine learning
-- **Patient Simulator**: Generates realistic patient data for testing
+- **MQTT Broker**: Secure message broker with TLS 1.2 encryption (port 8883)
+- **Main Host**: Collects and decrypts patient data, exposes metrics to Prometheus
+- **Web Dashboard**: Flask-based UI with SQLCipher encrypted database for patient management
+- **ML Service**: Analyzes vitals and detects anomalies using machine learning (JWT authenticated)
+- **Patient Simulator**: Generates encrypted patient data with Ascon-128 encryption
 - **Prometheus**: Scrapes and stores metrics
 - **Grafana**: Visualizes data in real-time dashboards
 - **AlertManager**: Sends alerts when vital signs exceed thresholds
+
+### Security Architecture
+
+All patient data flows through multiple security layers:
+
+1. **Device Layer**: Each patient device has a unique 128-bit encryption key
+2. **Transport Layer**: TLS 1.2 encrypted MQTT communication with certificates
+3. **Payload Layer**: Ascon-128 authenticated encryption for all vital signs data
+4. **Service Layer**: JWT tokens authenticate inter-service communication
+5. **Storage Layer**: SQLCipher encrypts the patient database at rest
 
 ### System Architecture Diagram
 
@@ -136,26 +159,65 @@ sequenceDiagram
    git clone https://github.com/KMohnishM/CN_Project.git
    cd CN_Project
    ```
-2. **Start the system**
+
+2. **Configure security settings** (Optional - defaults are provided)
+
+   Edit `config/environment/development.env` to customize:
+   
+   ```bash
+   # Encryption Settings
+   ENABLE_ENCRYPTION=true
+   ENABLE_SERVICE_AUTH=true
+   ENABLE_DB_ENCRYPTION=true
+   
+   # Security Keys (CHANGE IN PRODUCTION!)
+   JWT_SECRET_KEY=your-256-bit-secret-key
+   DB_ENCRYPTION_KEY=your-database-encryption-key
+   
+   # TLS Configuration
+   USE_TLS=true
+   MQTT_BROKER_HOST=mqtt_broker
+   MQTT_BROKER_PORT=8883
+   ```
+
+3. **Start the system**
 
    ```bash
    docker-compose up --build
    ```
 
-   Wait 2-3 minutes for all services to start.
-3. **Access the dashboards**
+   Wait 2-3 minutes for all services to start. You'll see:
+   - 🔐 Encrypted messages being published by patient simulator
+   - 🔓 Decryption logs in main_host
+   - ✅ "Database encryption ENABLED" in web_dashboard logs
+
+4. **Access the dashboards**
 
    - **Web Dashboard**: http://localhost:5000 (login: admin/admin)
    - **Grafana**: http://localhost:3001 (login: admin/admin)
    - **Prometheus**: http://localhost:9090
    - **AlertManager**: http://localhost:9093
-4. **Stop the system**
+
+5. **Verify security is active**
+
+   ```bash
+   # Check encryption status
+   docker logs main_host | grep "Decrypted vitals"
+   
+   # Verify JWT authentication
+   docker exec ml_service python -c "import sys; sys.path.insert(0, '/app/common'); from service_auth import generate_service_token; print(generate_service_token('test'))"
+   
+   # Confirm database encryption
+   docker logs web_dashboard | grep "Database encryption ENABLED"
+   ```
+
+6. **Stop the system**
 
    ```bash
    docker-compose down
    ```
 
-That's it! The system will start generating simulated patient data automatically.
+That's it! The system will start generating encrypted patient data automatically with all security layers active.
 
 ## 🖥️ Web UI Navigation Flow
 
@@ -217,13 +279,55 @@ graph TD
 
 ```
 ├── services/           # Application microservices
-│   ├── main_host/     # Data collection API
-│   ├── web_dashboard/ # Patient management UI
-│   ├── ml_service/    # Anomaly detection
-│   └── patient_simulator/
+│   ├── main_host/     # Data collection API with decryption
+│   ├── web_dashboard/ # Patient management UI (encrypted DB)
+│   ├── ml_service/    # Anomaly detection (JWT auth)
+│   ├── patient_simulator/  # Encrypted data generator
+│   └── common/        # Shared utilities (crypto, auth)
 ├── config/            # Configuration files
+│   ├── environment/   # Security settings (JWT, encryption keys)
 │   ├── prometheus/    # Metrics & alerting rules
 │   ├── grafana/       # Dashboards & datasources
-│   └── alertmanager/  # Alert routing
+│   ├── alertmanager/  # Alert routing
+│   └── mosquitto/     # MQTT TLS certificates
+├── data/
+│   └── keys/          # Per-device encryption keys
 └── docker-compose.yml # Container orchestration
 ```
+
+## 🔐 Security Implementation Details
+
+### Phase 1: TLS 1.2 Transport Layer
+- MQTT broker configured with TLS certificates
+- Client and server certificate authentication
+- Secure port 8883 (vs unencrypted 1883)
+
+### Phase 2: Ascon-128 Authenticated Encryption
+- Lightweight authenticated encryption cipher
+- 128-bit keys, 128-bit nonces for each message
+- Protection against tampering and replay attacks
+- Implementation in `services/common/crypto_utils.py`
+
+### Phase 3: Per-Device Key Management
+- Each patient device has unique encryption key
+- Keys stored in `data/keys/` directory
+- Automatic key provisioning for new devices
+- Key rotation support
+
+### Phase 4: JWT Service Authentication
+- HS256 algorithm with 24-hour token expiry
+- Service-to-service authentication
+- Implementation in `services/common/service_auth.py`
+- Environment-based secret key management
+
+### Phase 4: SQLCipher Database Encryption
+- Encrypted SQLite database using SQLCipher
+- AES-256 encryption for patient records
+- Transparent encryption/decryption
+- Implementation in `services/web_dashboard/database_encrypted.py`
+
+### Phase 5: Docker Deployment
+- All 8 services containerized and orchestrated
+- Volume mounts for certificates and keys
+- Environment-based configuration
+- Production-ready architecture

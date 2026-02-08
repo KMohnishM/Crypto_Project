@@ -25,9 +25,9 @@ except ImportError:
     print("⚠️  WARNING: Crypto utilities not available - running in plain mode")
     CRYPTO_AVAILABLE = False
 
-# Try to import service authentication (lightweight client without Flask deps)
+# Try to import service authentication
 try:
-    from auth_client import ServiceAuthClient
+    from service_auth import ServiceAuthClient
     AUTH_AVAILABLE = True
     print("🔐 Service authentication available")
 except ImportError:

@@ -3,6 +3,21 @@ networks:
     driver: bridge
 
 services:
+  # MQTT Broker with TLS for secure device communication
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt_broker
+    ports:
+      - "1883:1883"  # Plain MQTT (development only)
+      - "8883:8883"  # MQTT over TLS (production)
+    volumes:
+      - ./config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./config/mosquitto/certs:/mosquitto/certs
+      - mosquitto-data:/mosquitto/data
+    networks:
+      - hospital_network
+    restart: unless-stopped
+
   main_host:
     build: ./services/main_host
     container_name: main_host
@@ -10,6 +25,12 @@ services:
       - hospital_network
     ports:
       - "8000:8000"  # Expose port 8000 for Flask app
+    volumes:
+      - ./services/common:/app/common  # Mount crypto utilities
+      - ./config/mosquitto/certs:/app/certs:ro  # Mount TLS certificates
+      - ./data/keys:/app/keys  # Mount key storage
+    depends_on:
+      - mosquitto
     env_file:
       - ./config/environment/development.env
 
@@ -205,8 +226,12 @@ services:
       - hospital_network
     depends_on:
       - main_host
+      - mosquitto
     volumes:
       - ./data/patient_samples:/app/data
+      - ./services/common:/app/common  # Mount crypto utilities
+      - ./config/mosquitto/certs:/app/certs:ro  # Mount TLS certificates
+      - ./data/keys:/app/keys  # Mount key storage
     env_file:
       - ./config/environment/development.env
   alertmanager:
@@ -229,6 +254,7 @@ services:
       - hospital_network
     volumes:
       - ./services/ml_service:/app
+      - ./services/common:/app/common:ro  # Mount shared modules for JWT auth
     env_file:
       - ./config/environment/development.env
 
@@ -263,6 +289,8 @@ volumes:
   prometheus-data:
     driver: local
   grafana-data:
+    driver: local
+  mosquitto-data:
     driver: local
 
     

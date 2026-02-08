@@ -7,8 +7,10 @@ import io
 import time
 import random
 from flask_login import LoginManager, current_user
-from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+
+# Import database with encryption support
+from database_encrypted import init_encrypted_db, db
 
 # Initialize app
 app = Flask(__name__)
@@ -25,8 +27,8 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-please-change')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///healthcare.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Initialize SQLAlchemy
-db = SQLAlchemy(app)
+# Initialize database with encryption support
+init_encrypted_db(app)
 
 # Initialize Flask-Login
 login_manager = LoginManager()
