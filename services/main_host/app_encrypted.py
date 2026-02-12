@@ -4,7 +4,7 @@ Receives encrypted patient vitals, decrypts, and exposes metrics
 """
 
 from flask import Flask, request, jsonify
-from prometheus_client import Gauge, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST
 import logging
 import json
 from collections import defaultdict
@@ -13,6 +13,7 @@ import os
 import paho.mqtt.client as mqtt
 import ssl
 import threading
+import time
 
 # Add common directory to path for crypto utilities
 sys.path.insert(0, '/app/common')
@@ -66,6 +67,21 @@ security_metrics = {
     'plain_messages': Gauge('plain_messages_total', 'Total plain messages received'),
 }
 
+# Latency metrics (Histograms for distribution tracking)
+latency_metrics = {
+    'mqtt_receive': Histogram('mqtt_receive_latency_ms', 'MQTT message receive latency (ms)', ['device_id'],
+                              buckets=[1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000]),
+    'decryption': Histogram('decryption_latency_ms', 'Decryption latency (ms)', ['device_id'],
+                           buckets=[0.1, 0.5, 1, 2, 5, 10, 25, 50, 100]),
+    'processing': Histogram('processing_latency_ms', 'Data processing latency (ms)', ['device_id'],
+                           buckets=[0.1, 0.5, 1, 2, 5, 10, 25, 50]),
+    'end_to_end': Histogram('end_to_end_latency_ms', 'End-to-end latency from device to backend (ms)', ['device_id'],
+                           buckets=[10, 50, 100, 250, 500, 1000, 2500, 5000, 10000]),
+}
+
+# Track current latency values for dashboard
+current_latency = defaultdict(lambda: {'decryption': 0, 'processing': 0, 'end_to_end': 0})
+
 # In-memory data store for the dashboard
 patient_data_store = defaultdict(list)
 
@@ -115,6 +131,8 @@ def on_mqtt_message(client, userdata, msg):
     Handle incoming MQTT messages
     Decrypt if encrypted, process vitals
     """
+    mqtt_receive_time = time.time()
+    
     try:
         # Parse MQTT payload
         mqtt_payload = json.loads(msg.payload.decode('utf-8'))
@@ -122,6 +140,16 @@ def on_mqtt_message(client, userdata, msg):
         hospital = mqtt_payload.get('hospital', 'unknown')
         ward = mqtt_payload.get('ward', 'unknown')
         is_encrypted = mqtt_payload.get('encrypted', False)
+        
+        # Calculate network latency if timestamp is available
+        device_timestamp_us = mqtt_payload.get('timestamp_us', 0)
+        network_latency_ms = 0
+        if device_timestamp_us > 0:
+            # Convert device timestamp from microseconds to seconds
+            device_time = device_timestamp_us / 1_000_000
+            network_latency_ms = (mqtt_receive_time - device_time) * 1000
+            if network_latency_ms > 0:  # Only record positive latencies
+                latency_metrics['mqtt_receive'].labels(device_id=device_id).observe(network_latency_ms)
         
         # Extract patient ID from topic
         # Topic format: hospital/{hospital}/ward/{ward}/patient/{patient_id}
@@ -133,6 +161,8 @@ def on_mqtt_message(client, userdata, msg):
         
         # Infer department from ward (simplified)
         dept = ward.replace('ward_', 'dept_')
+        
+        decryption_time_ms = 0
         
         if is_encrypted:
             # Handle encrypted payload
@@ -148,6 +178,7 @@ def on_mqtt_message(client, userdata, msg):
             
             try:
                 # Decode base64-encoded ciphertext and nonce
+                decode_start = time.time()
                 ciphertext, nonce = decode_payload({
                     'ciphertext': mqtt_payload['ciphertext'],
                     'nonce': mqtt_payload['nonce']
@@ -157,11 +188,20 @@ def on_mqtt_message(client, userdata, msg):
                 device_key = key_manager.get_device_key(device_id)
                 crypto = AsconCrypto(device_key)
                 
-                # Decrypt payload
-                vitals = crypto.decrypt(ciphertext, nonce)
+                # Decrypt payload - NOW RETURNS TIMING
+                decrypt_start = time.time()
+                vitals, decryption_time_ms = crypto.decrypt(ciphertext, nonce)
                 
-                logging.info(f"🔓 Decrypted vitals from {device_id} | Patient: {patient_id}")
+                # Record decryption latency
+                latency_metrics['decryption'].labels(device_id=device_id).observe(decryption_time_ms)
+                
+                logging.info(f"🔓 Decrypted vitals from {device_id} | Patient: {patient_id} | "
+                           f"Decrypt: {decryption_time_ms:.2f}ms | Network: {network_latency_ms:.1f}ms")
                 security_metrics['decryption_success'].labels(device_id=device_id).inc()
+                
+                # Store latency info
+                current_latency[device_id]['decryption'] = decryption_time_ms
+                current_latency[device_id]['network'] = network_latency_ms
                 
             except ValueError as e:
                 logging.error(f"🔴 Authentication failed for {device_id}: {e}")
@@ -183,8 +223,23 @@ def on_mqtt_message(client, userdata, msg):
             vitals = mqtt_payload.get('vitals', {})
             logging.warning(f"⚠️  Received PLAIN data from {device_id} (security risk!)")
         
-        # Process the vitals
+        # Process the vitals - MEASURE PROCESSING TIME
+        processing_start = time.time()
         process_patient_data(vitals, hospital, dept, ward, patient_id)
+        processing_time_ms = (time.time() - processing_start) * 1000
+        
+        # Record processing latency
+        latency_metrics['processing'].labels(device_id=device_id).observe(processing_time_ms)
+        
+        # Calculate end-to-end latency
+        total_time_ms = (time.time() - mqtt_receive_time) * 1000
+        end_to_end_ms = network_latency_ms + total_time_ms
+        
+        if end_to_end_ms > 0 and device_timestamp_us > 0:
+            latency_metrics['end_to_end'].labels(device_id=device_id).observe(end_to_end_ms)
+            current_latency[device_id]['end_to_end'] = end_to_end_ms
+        
+        current_latency[device_id]['processing'] = processing_time_ms
         
     except json.JSONDecodeError as e:
         logging.error(f"🔴 Invalid JSON from MQTT: {e}")
@@ -305,6 +360,49 @@ def health():
         'crypto_available': CRYPTO_AVAILABLE,
         'active_patients': len(patient_data_store)
     })
+
+
+@app.route('/api/latency', methods=['GET'])
+def get_latency():
+    """Get current latency metrics for all devices"""
+    try:
+        latency_data = {}
+        for device_id, metrics in current_latency.items():
+            latency_data[device_id] = {
+                'decryption_ms': round(metrics.get('decryption', 0), 3),
+                'processing_ms': round(metrics.get('processing', 0), 3),
+                'network_ms': round(metrics.get('network', 0), 3),
+                'end_to_end_ms': round(metrics.get('end_to_end', 0), 3)
+            }
+        
+        return jsonify({
+            "status": "success",
+            "latency_metrics": latency_data
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/latency/<device_id>', methods=['GET'])
+def get_device_latency(device_id):
+    """Get latency metrics for a specific device"""
+    try:
+        if device_id not in current_latency:
+            return jsonify({"status": "error", "message": "Device not found"}), 404
+        
+        metrics = current_latency[device_id]
+        return jsonify({
+            "status": "success",
+            "device_id": device_id,
+            "latency": {
+                'decryption_ms': round(metrics.get('decryption', 0), 3),
+                'processing_ms': round(metrics.get('processing', 0), 3),
+                'network_ms': round(metrics.get('network', 0), 3),
+                'end_to_end_ms': round(metrics.get('end_to_end', 0), 3)
+            }
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route('/api/patients', methods=['GET'])

@@ -39,7 +39,8 @@ def on_message(client,userdata, msg):
             # Try decrypt
             crypto = AsconCrypto(device_key)
             print("Attempting decryption...")
-            vitals = crypto.decrypt(ciphertext, nonce)
+            vitals, decrypt_time = crypto.decrypt(ciphertext, nonce)
+            print(f"⏱️  Decryption time: {decrypt_time:.3f}ms")
             print(f"✅ SUCCESS: {vitals}")
     except Exception as e:
         print(f"❌ ERROR: {e}")

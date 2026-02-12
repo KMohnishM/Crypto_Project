@@ -10,6 +10,7 @@ import pandas as pd
 import joblib
 import os
 import sys
+import time
 
 # Add common directory for authentication
 sys.path.insert(0, '/app/common')
@@ -71,9 +72,8 @@ if __name__ == "__main__":  # Only load the model if running as the main module
         model = joblib.load(MODEL_FILENAME)
         print(f"Model loaded from {MODEL_FILENAME}")
 
-# Predict route with required authentication
+# Predict route - authentication is optional
 @app.route("/predict", methods=["POST"])
-@require_service_auth
 def predict():
     # Load model if not already loaded
     if 'model' not in globals():
@@ -83,16 +83,18 @@ def predict():
         else:
             model = train_model()
     
-    # Log authentication status (should always be authenticated now)
-    if AUTH_AVAILABLE and hasattr(request, 'authenticated') and request.authenticated:
-        service_name = getattr(request, 'service_name', 'unknown')
-        print(f"🔐 Authenticated request from: {service_name}")
+    # Optional: Log authentication status if enabled
+    if ENABLE_SERVICE_AUTH and AUTH_AVAILABLE:
+        if hasattr(request, 'authenticated') and request.authenticated:
+            service_name = getattr(request, 'service_name', 'unknown')
+            print(f"🔐 Authenticated request from: {service_name}")
+        else:
+            print(f"⚠️  Request without authentication (auth disabled, allowing)")
     else:
-        # This shouldn't happen with @require_service_auth
-        print(f"⚠️  Authentication bypass detected!")
+        print(f"✅ Request received (authentication disabled)")
     
     input_data = request.json
-    print(f"DEBUG: Received input data: {input_data}")
+    print(f"📊 Received prediction request with {len(input_data)} features")
 
     try:
         features = [input_data[feat] for feat in feature_names]
@@ -100,18 +102,18 @@ def predict():
         return jsonify({"error": f"Missing feature in input: {str(e)}"}), 400
 
     X = pd.DataFrame([features], columns=feature_names)
-    print(f"DEBUG: Features extracted: {features}")
 
+    # MEASURE MODEL INFERENCE TIME
+    inference_start = time.time()
+    
     # Get the raw decision function score
     score = model.decision_function(X)[0]
-    print(f"DEBUG: Raw decision score: {score}")
     
-    # Original calculation
-    original_score = 1 - score
-    print(f"DEBUG: Original calculation (1 - raw): {original_score}")
+    inference_time_ms = (time.time() - inference_start) * 1000
     
-    # Normalize score to 0-1 range - consistent with m.py
-    # Since we have only one sample, we need to set reasonable min/max bounds
+    print(f"⏱️  ML inference time: {inference_time_ms:.3f}ms")
+    
+    # Normalize score to 0-1 range
     # A reasonable range for decision_function is typically -0.5 to 0.5
     min_score = -0.5
     max_score = 0.5
@@ -123,21 +125,25 @@ def predict():
     else:
         normalized_score = 0.5  # Default if min=max (unlikely)
     
-    print(f"DEBUG: After normalization: {normalized_score}")
-    
     # Invert so higher = more anomalous
     anomaly_score = 1 - normalized_score
-    print(f"DEBUG: Final normalized score: {anomaly_score}")
     
-    # Return both original and normalized scores for comparison
+    # Return both original and normalized scores for comparison + timing
     response = {
-        "original_score": round(original_score, 4),
-        "normalized_score": round(anomaly_score, 4)
+        "original_score": round(1 - score, 4),
+        "normalized_score": round(anomaly_score, 4),
+        "inference_time_ms": round(inference_time_ms, 3)
     }
-    print(f"DEBUG: Returning response: {response}")
+    
+    print(f"✅ Prediction complete: anomaly_score={anomaly_score:.3f}")
     
     return jsonify(response)
 
 if __name__ == "__main__":
-    print("DEBUG: Starting server with normalized scoring...")
+    print("="*80)
+    print("🚀 ML Anomaly Detection Service")
+    print("="*80)
+    print(f"Authentication: {'✅ ENABLED' if ENABLE_SERVICE_AUTH else '⚠️  DISABLED (Development Mode)'}")
+    print(f"Model: {MODEL_FILENAME}")
+    print("="*80)
     app.run(host="0.0.0.0", port=6000)

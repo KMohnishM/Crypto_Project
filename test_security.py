@@ -67,10 +67,10 @@ def test_crypto_utils():
         crypto = AsconCrypto(test_key)
         test_payload = {"heart_rate": 72, "spo2": 98, "patient_id": "test_1"}
         
-        ciphertext, nonce = crypto.encrypt(test_payload)
+        ciphertext, nonce, encrypt_time = crypto.encrypt(test_payload)
         test_pass(f"Encryption ({len(ciphertext)} bytes ciphertext)")
         
-        decrypted = crypto.decrypt(ciphertext, nonce)
+        decrypted, decrypt_time = crypto.decrypt(ciphertext, nonce)
         if decrypted == test_payload:
             test_pass("Decryption and integrity check")
         else:

@@ -147,21 +147,28 @@ void loop() {
   if (!mqttClient.connected()) connectMQTT();
   mqttClient.loop();
 
+  unsigned long start_total = micros();
+
   // 1. Read sensors
+  unsigned long start_sensor = micros();
   StaticJsonDocument<512> doc;
   read_sensors(doc);
   char plaintextBuf[512];
   size_t plen = serializeJson(doc, plaintextBuf);
+  unsigned long sensor_time = micros() - start_sensor;
 
   // 2. Generate nonce
   uint8_t nonce[12];
   generate_nonce(nonce, sizeof(nonce));
 
-  // 3. AEAD encrypt (AES-128-GCM here)
+  // 3. AEAD encrypt (AES-128-GCM here) - MEASURE CRYPTO TIME
+  unsigned long start_encrypt = micros();
   uint8_t ciphertext[512];
   uint8_t tag[16];
   bool ok = aead_encrypt_gcm(DEVICE_KEY, (uint8_t*)plaintextBuf, plen,
                              NULL, 0, nonce, sizeof(nonce), ciphertext, tag);
+  unsigned long encrypt_time = micros() - start_encrypt;
+  
   if (!ok) {
     Serial.println("Encryption failed");
     delay(2000);
@@ -169,20 +176,36 @@ void loop() {
   }
 
   // 4. Build JSON message: device_id, nonce, ciphertext, tag
+  unsigned long start_build = micros();
   StaticJsonDocument<768> out;
   out["device_id"] = DEVICE_ID;
   out["nonce"] = b64enc(nonce, sizeof(nonce));
   out["ciphertext"] = b64enc(ciphertext, plen);
   out["tag"] = b64enc(tag, sizeof(tag));
+  // Add latency metrics
+  out["latency_sensor_us"] = sensor_time;
+  out["latency_encrypt_us"] = encrypt_time;
+  out["timestamp_us"] = micros();
 
   char outBuf[1024];
   size_t olen = serializeJson(out, outBuf);
+  unsigned long build_time = micros() - start_build;
 
-  // 5. Publish
+  // 5. Publish - MEASURE NETWORK TIME
+  unsigned long start_publish = micros();
   String topic = topicPrefix + String(DEVICE_ID);
   boolean res = mqttClient.publish(topic.c_str(), outBuf, olen);
-  if (res) Serial.println("Published encrypted payload");
-  else Serial.println("Publish failed");
+  unsigned long publish_time = micros() - start_publish;
+  
+  unsigned long total_time = micros() - start_total;
+  
+  if (res) {
+    Serial.println("Published encrypted payload");
+    Serial.printf("⏱️  Sensor: %lu us | Encrypt: %lu us | Build: %lu us | Publish: %lu us | Total: %lu us\n",
+                  sensor_time, encrypt_time, build_time, publish_time, total_time);
+  } else {
+    Serial.println("Publish failed");
+  }
 
   delay(1000); // publish rate
 }

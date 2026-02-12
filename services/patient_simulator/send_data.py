@@ -249,7 +249,7 @@ def publish_encrypted_vitals(patient_data, anomaly_score):
             crypto = AsconCrypto(device_key)
             
             # Encrypt payload
-            ciphertext, nonce = crypto.encrypt(vitals_payload)
+            ciphertext, nonce, encrypt_time_ms = crypto.encrypt(vitals_payload)
             
             # Encode for transmission
             encoded = encode_payload(ciphertext, nonce)

@@ -87,7 +87,8 @@ try:
         "timestamp": "2026-02-08T14:30:00Z"
     }
     
-    ciphertext, nonce = crypto.encrypt(patient_vitals)
+    ciphertext, nonce, encrypt_time = crypto.encrypt(patient_vitals)
+    print(f"⏱️  Encryption time: {encrypt_time:.3f}ms")
     test_pass(f"Payload encrypted: {len(ciphertext)} bytes")
     print(f"   Original size: {len(str(patient_vitals))} bytes")
     print(f"   Encrypted size: {len(ciphertext)} bytes")
@@ -173,7 +174,8 @@ try:
     
     # Decrypt
     backend_crypto = AsconCrypto(backend_device_key)
-    decrypted_vitals = backend_crypto.decrypt(decoded_ct, decoded_nonce)
+    decrypted_vitals, decrypt_time = backend_crypto.decrypt(decoded_ct, decoded_nonce)
+    print(f"⏱️  Decryption time: {decrypt_time:.3f}ms")
     
     test_pass("Payload decrypted successfully")
     print(f"   Decrypted data: {decrypted_vitals}")
@@ -194,7 +196,7 @@ try:
     tampered_ct[10] ^= 0xFF  # Flip some bits
     
     try:
-        backend_crypto.decrypt(bytes(tampered_ct), nonce)
+        backend_crypto.decrypt(bytes(tampered_ct), nonce)  # Returns (data, time)
         test_fail("Tampered data was not detected!")
     except:
         test_pass("Tampered data correctly rejected")

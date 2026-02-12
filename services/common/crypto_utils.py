@@ -7,6 +7,7 @@ import os
 import json
 from typing import Dict, Tuple, Optional
 import base64
+import time
 
 try:
     import ascon
@@ -39,7 +40,7 @@ class AsconCrypto:
         if len(self.key) != 16:
             raise ValueError(f"Key must be 16 bytes (128 bits), got {len(self.key)} bytes")
     
-    def encrypt(self, payload: Dict, nonce: Optional[bytes] = None) -> Tuple[bytes, bytes]:
+    def encrypt(self, payload: Dict, nonce: Optional[bytes] = None) -> Tuple[bytes, bytes, float]:
         """
         Encrypt patient vitals payload using Ascon-128
         
@@ -48,10 +49,12 @@ class AsconCrypto:
             nonce: Optional 16-byte nonce (generated if not provided)
         
         Returns:
-            (ciphertext, nonce) tuple
+            (ciphertext, nonce, encrypt_time_ms) tuple
             
         Security: Nonce MUST be unique per encryption with same key
         """
+        start_time = time.time()
+        
         if nonce is None:
             nonce = os.urandom(16)  # 128-bit random nonce
         
@@ -63,11 +66,15 @@ class AsconCrypto:
         
         # Ascon authenticated encryption
         # Parameters: key, nonce, associated_data, plaintext
+        crypto_start = time.time()
         ciphertext = ascon.encrypt(self.key, nonce, b'', plaintext)
+        crypto_time = (time.time() - crypto_start) * 1000  # Convert to ms
         
-        return ciphertext, nonce
+        total_time = (time.time() - start_time) * 1000
+        
+        return ciphertext, nonce, total_time
     
-    def decrypt(self, ciphertext: bytes, nonce: bytes) -> Dict:
+    def decrypt(self, ciphertext: bytes, nonce: bytes) -> Tuple[Dict, float]:
         """
         Decrypt and authenticate patient vitals payload
         
@@ -76,18 +83,26 @@ class AsconCrypto:
             nonce: 16-byte nonce used during encryption
         
         Returns:
-            Decrypted payload dictionary
+            (decrypted_payload, decrypt_time_ms) tuple
             
         Raises:
             ValueError: If authentication tag verification fails (tampered data)
         """
+        start_time = time.time()
+        
         if len(nonce) != 16:
             raise ValueError(f"Nonce must be 16 bytes, got {len(nonce)} bytes")
         
         try:
             # Ascon authenticated decryption
+            crypto_start = time.time()
             plaintext = ascon.decrypt(self.key, nonce, b'', ciphertext)
-            return json.loads(plaintext.decode('utf-8'))
+            crypto_time = (time.time() - crypto_start) * 1000
+            
+            payload = json.loads(plaintext.decode('utf-8'))
+            total_time = (time.time() - start_time) * 1000
+            
+            return payload, total_time
         except Exception as e:
             raise ValueError(f"Decryption failed - data may be tampered: {e}")
 
@@ -298,8 +313,8 @@ if __name__ == "__main__":
     }
     
     # Encrypt
-    ciphertext, nonce = crypto.encrypt(test_payload)
-    print(f"✅ Encrypted: {len(ciphertext)} bytes")
+    ciphertext, nonce, encrypt_time = crypto.encrypt(test_payload)
+    print(f"✅ Encrypted: {len(ciphertext)} bytes (took {encrypt_time:.3f}ms)")
     
     # Encode for transmission
     encoded = encode_payload(ciphertext, nonce)
@@ -309,8 +324,8 @@ if __name__ == "__main__":
     decoded_ct, decoded_nonce = decode_payload(encoded)
     
     # Decrypt
-    decrypted = crypto.decrypt(decoded_ct, decoded_nonce)
-    print(f"✅ Decrypted: {decrypted}")
+    decrypted, decrypt_time = crypto.decrypt(decoded_ct, decoded_nonce)
+    print(f"✅ Decrypted: {decrypted} (took {decrypt_time:.3f}ms)")
     
     # Verify
     assert decrypted == test_payload

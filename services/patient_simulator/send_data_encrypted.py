@@ -184,13 +184,17 @@ def generate_updated_patient_data(meta, time_diff_minutes=1):
 
 # Get anomaly score from ML service
 def get_anomaly_score(data):
-    """Get anomaly score from ML service with optional authentication"""
+    """Get anomaly score from ML service with optional authentication and timing"""
+    ml_start_time = time.time()
+    
     try:
         # Use authenticated client if available
         if ml_client:
             response = ml_client.post(ML_MODEL_URL, json=data, timeout=3)
         else:
             response = requests.post(ML_MODEL_URL, json=data, timeout=3)
+        
+        ml_latency_ms = (time.time() - ml_start_time) * 1000
             
         if response.status_code == 200:
             response_data = response.json()
@@ -201,24 +205,28 @@ def get_anomaly_score(data):
                 anomaly_score = float(response_data.get("anomaly_score", 0.0))
             else:
                 anomaly_score = 0.0
-                
-            return anomaly_score
+            
+            print(f"⏱️  ML inference latency: {ml_latency_ms:.2f}ms")
+            return anomaly_score, ml_latency_ms
         else:
             print(f"ML service failed with code {response.status_code}")
-            return 0.0
+            return 0.0, ml_latency_ms
     except Exception as e:
-        print(f"Error contacting ML service: {e}")
-        return 0.0
+        ml_latency_ms = (time.time() - ml_start_time) * 1000
+        print(f"Error contacting ML service: {e} (took {ml_latency_ms:.2f}ms)")
+        return 0.0, ml_latency_ms
 
 
-def publish_encrypted_vitals(patient_data, anomaly_score):
+def publish_encrypted_vitals(patient_data, anomaly_score, ml_latency_ms=0):
     """
     Encrypt patient vitals and publish via MQTT
-    This simulates ESP32 device behavior
+    This simulates ESP32 device behavior with latency tracking
     """
     if not mqtt_connected:
         print("⚠️  MQTT not connected - skipping publish")
         return False
+    
+    total_start = time.time()
     
     # Generate device ID (unique per patient)
     device_id = f"{patient_data['hospital']}_{patient_data['patient']}"
@@ -241,6 +249,8 @@ def publish_encrypted_vitals(patient_data, anomaly_score):
         "anomaly_score": anomaly_score
     }
     
+    encryption_time_ms = 0
+    
     # Encrypt if crypto available
     if CRYPTO_AVAILABLE and key_manager:
         try:
@@ -248,13 +258,14 @@ def publish_encrypted_vitals(patient_data, anomaly_score):
             device_key = key_manager.get_device_key(device_id)
             crypto = AsconCrypto(device_key)
             
-            # Encrypt payload
-            ciphertext, nonce = crypto.encrypt(vitals_payload)
+            # Encrypt payload - NOW RETURNS TIMING
+            encrypt_start = time.time()
+            ciphertext, nonce, encryption_time_ms = crypto.encrypt(vitals_payload)
             
             # Encode for transmission
             encoded = encode_payload(ciphertext, nonce)
             
-            # Package metadata
+            # Package metadata with latency info
             mqtt_payload = {
                 "device_id": device_id,
                 "hospital": patient_data['hospital'],
@@ -262,7 +273,10 @@ def publish_encrypted_vitals(patient_data, anomaly_score):
                 "encrypted": True,
                 "ciphertext": encoded['ciphertext'],
                 "nonce": encoded['nonce'],
-                "timestamp": patient_data['timestamp']
+                "timestamp": patient_data['timestamp'],
+                "timestamp_us": int(time.time() * 1_000_000),  # For end-to-end latency
+                "latency_encrypt_ms": round(encryption_time_ms, 3),
+                "latency_ml_ms": round(ml_latency_ms, 3)
             }
             
             encryption_status = "🔐 encrypted"
@@ -294,17 +308,25 @@ def publish_encrypted_vitals(patient_data, anomaly_score):
         patient_id=patient_data['patient']
     )
     
-    # Publish to MQTT
+    # Publish to MQTT - MEASURE PUBLISH TIME
+    publish_start = time.time()
     try:
         result = mqtt_client.publish(topic, json.dumps(mqtt_payload), qos=1)
+        publish_time_ms = (time.time() - publish_start) * 1000
+        
+        total_time_ms = (time.time() - total_start) * 1000
+        
         if result.rc == mqtt.MQTT_ERR_SUCCESS:
-            print(f"📤 {encryption_status} | {device_id} | Score: {anomaly_score:.2f} | Topic: {topic}")
+            print(f"📤 {encryption_status} | {device_id} | Score: {anomaly_score:.2f}")
+            print(f"⏱️  Encrypt: {encryption_time_ms:.2f}ms | ML: {ml_latency_ms:.2f}ms | "
+                  f"Publish: {publish_time_ms:.2f}ms | Total: {total_time_ms:.2f}ms")
             return True
         else:
             print(f"❌ Publish failed: {result.rc}")
             return False
     except Exception as e:
-        print(f"❌ MQTT publish error: {e}")
+        publish_time_ms = (time.time() - publish_start) * 1000
+        print(f"❌ MQTT publish error: {e} (took {publish_time_ms:.2f}ms)")
         return False
 
 
@@ -347,11 +369,11 @@ def simulate_traffic(file_path):
                 # Generate updated vitals
                 data = generate_updated_patient_data(patient_meta, time_diff_minutes)
 
-                # Get anomaly score from ML service
-                anomaly_score = get_anomaly_score(data)
+                # Get anomaly score from ML service (with timing)
+                anomaly_score, ml_latency = get_anomaly_score(data)
 
-                # Publish encrypted data via MQTT
-                publish_encrypted_vitals(data, anomaly_score)
+                # Publish encrypted data via MQTT (with timing)
+                publish_encrypted_vitals(data, anomaly_score, ml_latency)
 
                 time.sleep(1)
                 time_diff_minutes += 1
