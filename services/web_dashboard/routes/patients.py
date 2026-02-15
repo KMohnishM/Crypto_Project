@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from datetime import datetime
+import os
 
 from models.patient import Patient, PatientLocation, PatientVitalSign, PatientMedicalHistory, db
 
@@ -419,3 +420,124 @@ def api_add_patient_vitals(patient_id):
         'patient_id': patient_id,
         'patient_name': patient.get_full_name()
     })
+
+# Internal API endpoint for main_host backend (no authentication required)
+@patients.route('/api/vitals/save', methods=['POST'])
+def api_save_encrypted_vitals():
+    """
+    Internal API endpoint for main_host backend to save encrypted vitals
+    No authentication required for internal service-to-service communication
+    
+    Expected payload:
+    {
+        "encrypted_vitals": "base64_encoded_encrypted_json",
+        "patient_id": "P001"
+    }
+    """
+    import base64
+    import json
+    from cryptography.fernet import Fernet
+    import hashlib
+    
+    # Get data from request
+    data = request.json
+    
+    if not data:
+        return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+    
+    encrypted_vitals = data.get('encrypted_vitals')
+    patient_id_str = data.get('patient_id')
+    
+    if not encrypted_vitals or not patient_id_str:
+        return jsonify({'status': 'error', 'message': 'Missing required fields'}), 400
+    
+    try:
+        # Get encryption key from environment
+        encryption_key = os.getenv('DB_ENCRYPTION_KEY', 'default-32-char-key-change-this!')
+        
+        # Derive Fernet key from encryption key
+        key_hash = hashlib.sha256(encryption_key.encode()).digest()
+        fernet_key = base64.urlsafe_b64encode(key_hash)
+        cipher = Fernet(fernet_key)
+        
+        # Decrypt vitals
+        encrypted_bytes = base64.b64decode(encrypted_vitals)
+        decrypted_bytes = cipher.decrypt(encrypted_bytes)
+        vitals_data = json.loads(decrypted_bytes.decode('utf-8'))
+        
+        # Find or create patient
+        # First try to find by patient_id string match (e.g., "P001")
+        patient = Patient.query.filter_by(mrn=patient_id_str).first()
+        
+        if not patient:
+            # Create new patient record with minimal info
+            patient = Patient(
+                mrn=patient_id_str,
+                first_name=f"Patient {patient_id_str}",
+                last_name="",
+                date_of_birth=datetime(2000, 1, 1).date(),  # Placeholder
+                gender='unknown',
+                status='admitted'
+            )
+            db.session.add(patient)
+            db.session.commit()
+        
+        # Parse timestamp
+        timestamp_str = vitals_data.get('timestamp')
+        if timestamp_str:
+            # Expected format: "2025-01-19 12:45:10"
+            recorded_at = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+        else:
+            recorded_at = datetime.utcnow()
+        
+        # Create new vital sign record with all fields
+        new_vitals = PatientVitalSign(
+            patient_id=patient.patient_id,
+            heart_rate=vitals_data.get('heart_rate'),
+            spo2=vitals_data.get('spo2'),
+            bp_systolic=vitals_data.get('bp_systolic'),
+            bp_diastolic=vitals_data.get('bp_diastolic'),
+            respiratory_rate=vitals_data.get('respiratory_rate'),
+            temperature=vitals_data.get('temperature'),
+            etco2=vitals_data.get('etco2'),
+            fio2=vitals_data.get('fio2'),
+            blood_glucose=vitals_data.get('blood_glucose'),
+            lactate=vitals_data.get('lactate'),
+            wbc_count=vitals_data.get('wbc_count'),
+            anomaly_score=vitals_data.get('anomaly_score'),
+            recorded_by=None,  # No user - automated system
+            recorded_at=recorded_at
+        )
+        
+        db.session.add(new_vitals)
+        db.session.commit()
+        
+        # Emit real-time update via WebSocket
+        try:
+            from app import socketio
+            socketio.emit('vitals_update', {
+                'patient_id': patient_id_str,
+                'vitals': vitals_data,
+                'anomaly_score': vitals_data.get('anomaly_score'),
+                'timestamp': timestamp_str or datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            }, namespace='/')
+        except Exception as emit_error:
+            print(f"⚠️  WebSocket emit failed: {emit_error}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Vital signs saved to database',
+            'vital_id': new_vitals.vital_id,
+            'patient_id': patient_id_str,
+            'db_patient_id': patient.patient_id
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"❌ Error saving encrypted vitals: {str(e)}")
+        print(error_detail)
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to save vitals: {str(e)}'
+        }), 500

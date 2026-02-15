@@ -14,6 +14,7 @@ import json
 import sys
 import paho.mqtt.client as mqtt
 import ssl
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Add common directory to path for crypto utilities
 sys.path.insert(0, '/app/common')
@@ -182,45 +183,22 @@ def generate_updated_patient_data(meta, time_diff_minutes=1):
     }
 
 
-# Get anomaly score from ML service
+# DEPRECATED: ML service is now called by backend
+# This function is kept for backward compatibility but not used
 def get_anomaly_score(data):
-    """Get anomaly score from ML service with optional authentication and timing"""
-    ml_start_time = time.time()
-    
-    try:
-        # Use authenticated client if available
-        if ml_client:
-            response = ml_client.post(ML_MODEL_URL, json=data, timeout=3)
-        else:
-            response = requests.post(ML_MODEL_URL, json=data, timeout=3)
-        
-        ml_latency_ms = (time.time() - ml_start_time) * 1000
-            
-        if response.status_code == 200:
-            response_data = response.json()
-            
-            if "normalized_score" in response_data:
-                anomaly_score = float(response_data.get("normalized_score", 0.0))
-            elif "anomaly_score" in response_data:
-                anomaly_score = float(response_data.get("anomaly_score", 0.0))
-            else:
-                anomaly_score = 0.0
-            
-            print(f"⏱️  ML inference latency: {ml_latency_ms:.2f}ms")
-            return anomaly_score, ml_latency_ms
-        else:
-            print(f"ML service failed with code {response.status_code}")
-            return 0.0, ml_latency_ms
-    except Exception as e:
-        ml_latency_ms = (time.time() - ml_start_time) * 1000
-        print(f"Error contacting ML service: {e} (took {ml_latency_ms:.2f}ms)")
-        return 0.0, ml_latency_ms
+    """
+    DEPRECATED: Backend now calls ML service after decryption
+    Keeping this function for backward compatibility
+    """
+    print("⚠️  ML call skipped - Backend will handle ML inference")
+    return 0.0, 0.0
 
 
-def publish_encrypted_vitals(patient_data, anomaly_score, ml_latency_ms=0):
+def publish_encrypted_vitals(patient_data):
     """
     Encrypt patient vitals and publish via MQTT
     This simulates ESP32 device behavior with latency tracking
+    Backend will call ML service to compute anomaly score
     """
     if not mqtt_connected:
         print("⚠️  MQTT not connected - skipping publish")
@@ -231,7 +209,7 @@ def publish_encrypted_vitals(patient_data, anomaly_score, ml_latency_ms=0):
     # Generate device ID (unique per patient)
     device_id = f"{patient_data['hospital']}_{patient_data['patient']}"
     
-    # Prepare vitals payload
+    # Prepare vitals payload (NO anomaly_score - backend will compute)
     vitals_payload = {
         "patient_id": patient_data['patient'],
         "heart_rate": patient_data['heart_rate'],
@@ -245,8 +223,7 @@ def publish_encrypted_vitals(patient_data, anomaly_score, ml_latency_ms=0):
         "wbc_count": patient_data['wbc_count'],
         "lactate": patient_data['lactate'],
         "blood_glucose": patient_data['blood_glucose'],
-        "timestamp": patient_data['timestamp'],
-        "anomaly_score": anomaly_score
+        "timestamp": patient_data['timestamp']
     }
     
     encryption_time_ms = 0
@@ -275,8 +252,7 @@ def publish_encrypted_vitals(patient_data, anomaly_score, ml_latency_ms=0):
                 "nonce": encoded['nonce'],
                 "timestamp": patient_data['timestamp'],
                 "timestamp_us": int(time.time() * 1_000_000),  # For end-to-end latency
-                "latency_encrypt_ms": round(encryption_time_ms, 3),
-                "latency_ml_ms": round(ml_latency_ms, 3)
+                "latency_encrypt_ms": round(encryption_time_ms, 3)
             }
             
             encryption_status = "🔐 encrypted"
@@ -317,8 +293,8 @@ def publish_encrypted_vitals(patient_data, anomaly_score, ml_latency_ms=0):
         total_time_ms = (time.time() - total_start) * 1000
         
         if result.rc == mqtt.MQTT_ERR_SUCCESS:
-            print(f"📤 {encryption_status} | {device_id} | Score: {anomaly_score:.2f}")
-            print(f"⏱️  Encrypt: {encryption_time_ms:.2f}ms | ML: {ml_latency_ms:.2f}ms | "
+            print(f"📤 {encryption_status} | {device_id}")
+            print(f"⏱️  Encrypt: {encryption_time_ms:.2f}ms | "
                   f"Publish: {publish_time_ms:.2f}ms | Total: {total_time_ms:.2f}ms")
             return True
         else:
@@ -330,7 +306,7 @@ def publish_encrypted_vitals(patient_data, anomaly_score, ml_latency_ms=0):
         return False
 
 
-# Simulate traffic
+# Simulate traffic with parallel processing
 def simulate_traffic(file_path):
     sheets = read_patient_data_from_excel(file_path)
     if not sheets:
@@ -343,12 +319,13 @@ def simulate_traffic(file_path):
     time_diff_minutes = 1
 
     print(f"\n{'='*80}")
-    print(f"🚀 Starting Patient Simulator")
+    print(f"🚀 Starting Patient Simulator (Parallel Mode)")
     print(f"{'='*80}")
     print(f"Sheets loaded: {len(sheet_names)}")
     print(f"MQTT Broker: {MQTT_BROKER}:{MQTT_PORT}")
     print(f"Encryption: {'✅ Enabled' if CRYPTO_AVAILABLE else '❌ Disabled'}")
     print(f"TLS: {'✅ Enabled' if USE_TLS else '❌ Disabled'}")
+    print(f"Parallel Processing: ✅ Enabled (up to {len(sheet_names)} concurrent patients)")
     print(f"{'='*80}\n")
 
     # Initialize MQTT
@@ -357,31 +334,66 @@ def simulate_traffic(file_path):
     # Give MQTT time to stabilize
     time.sleep(2)
 
+    # Helper function to process one patient
+    def process_patient(sheet_name, patient_meta, time_diff):
+        """Process a single patient in parallel"""
+        try:
+            # Generate updated vitals
+            data = generate_updated_patient_data(patient_meta, time_diff)
+            
+            # Publish encrypted data via MQTT
+            # Backend will call ML service after decryption
+            success = publish_encrypted_vitals(data)
+            return (sheet_name, success)
+        except Exception as e:
+            print(f"❌ Error processing patient {sheet_name}: {e}")
+            return (sheet_name, False)
+
     while True:
         active = False
-
+        batch_start = time.time()
+        
+        # Collect all patients for this row_index
+        patient_tasks = []
         for sheet_name in sheet_names:
             rows = sheet_data[sheet_name]
             if row_index < len(rows):
                 active = True
                 patient_meta = rows[row_index]
-
-                # Generate updated vitals
-                data = generate_updated_patient_data(patient_meta, time_diff_minutes)
-
-                # Get anomaly score from ML service (with timing)
-                anomaly_score, ml_latency = get_anomaly_score(data)
-
-                # Publish encrypted data via MQTT (with timing)
-                publish_encrypted_vitals(data, anomaly_score, ml_latency)
-
-                time.sleep(1)
-                time_diff_minutes += 1
-
+                patient_tasks.append((sheet_name, patient_meta, time_diff_minutes))
+        
         if not active:
             print("\n✅ All rows processed.")
             break
-
+        
+        # Process all patients in parallel using ThreadPoolExecutor
+        max_workers = min(len(patient_tasks), 15)  # Max 15 concurrent threads
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all tasks
+            futures = {
+                executor.submit(process_patient, sheet, meta, tdiff): sheet 
+                for sheet, meta, tdiff in patient_tasks
+            }
+            
+            # Wait for all to complete
+            success_count = 0
+            for future in as_completed(futures):
+                sheet_name = futures[future]
+                try:
+                    sheet, success = future.result()
+                    if success:
+                        success_count += 1
+                except Exception as e:
+                    print(f"❌ Exception for {sheet_name}: {e}")
+        
+        batch_time_ms = (time.time() - batch_start) * 1000
+        print(f"📊 Batch complete: {success_count}/{len(patient_tasks)} patients | "
+              f"Total time: {batch_time_ms:.2f}ms | "
+              f"Avg per patient: {batch_time_ms/len(patient_tasks):.2f}ms")
+        
+        # Wait before next batch (simulate 1-second intervals)
+        time.sleep(1)
+        time_diff_minutes += 1
         row_index += 1
 
     # Cleanup

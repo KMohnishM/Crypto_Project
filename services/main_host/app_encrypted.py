@@ -14,6 +14,10 @@ import paho.mqtt.client as mqtt
 import ssl
 import threading
 import time
+import requests
+from cryptography.fernet import Fernet
+import base64
+import hashlib
 
 # Add common directory to path for crypto utilities
 sys.path.insert(0, '/app/common')
@@ -33,6 +37,13 @@ MQTT_BROKER = os.getenv('MQTT_BROKER', 'mosquitto')
 MQTT_PORT = int(os.getenv('MQTT_PORT_TLS', '8883'))
 MQTT_PORT_PLAIN = int(os.getenv('MQTT_PORT_PLAIN', '1883'))
 USE_TLS = os.getenv('USE_TLS', 'true').lower() == 'true'
+
+# ML Service Configuration
+ML_SERVICE_URL = os.getenv('ML_SERVICE_URL', 'http://ml_service:6000/predict')
+
+# Database API Configuration
+WEB_DASHBOARD_URL = os.getenv('WEB_DASHBOARD_URL', 'http://web_dashboard:5000')
+DB_ENCRYPTION_KEY = os.getenv('DB_ENCRYPTION_KEY', 'dev-db-key-change-in-production')
 
 # Initialize key manager
 key_manager = None
@@ -87,6 +98,112 @@ patient_data_store = defaultdict(list)
 
 # MQTT connection status
 mqtt_connected = False
+
+# Initialize AES encryption for database
+def get_aes_cipher():
+    """Generate AES cipher from encryption key"""
+    # Use SHA-256 hash of key to get 32-byte key for AES
+    key = hashlib.sha256(DB_ENCRYPTION_KEY.encode()).digest()
+    # Base64 encode for Fernet (requires URL-safe base64)
+    key_b64 = base64.urlsafe_b64encode(key)
+    return Fernet(key_b64)
+
+
+def call_ml_service(vitals_data):
+    """
+    Call ML service to get anomaly score
+    This is now done by backend (not simulator)
+    """
+    ml_start_time = time.time()
+    
+    try:
+        # Prepare payload for ML service
+        ml_payload = {
+            'heart_rate': vitals_data.get('heart_rate', 75),
+            'bp_systolic': vitals_data.get('bp_systolic', 120),
+            'bp_diastolic': vitals_data.get('bp_diastolic', 80),
+            'respiratory_rate': vitals_data.get('respiratory_rate', 16),
+            'spo2': vitals_data.get('spo2', 95),
+            'etco2': vitals_data.get('etco2', 35),
+            'fio2': vitals_data.get('fio2', 21),
+            'temperature': vitals_data.get('temperature', 37.0),
+            'wbc_count': vitals_data.get('wbc_count', 7.0),
+            'lactate': vitals_data.get('lactate', 1.2),
+            'blood_glucose': vitals_data.get('blood_glucose', 95)
+        }
+        
+        response = requests.post(ML_SERVICE_URL, json=ml_payload, timeout=3)
+        ml_latency_ms = (time.time() - ml_start_time) * 1000
+        
+        if response.status_code == 200:
+            result = response.json()
+            anomaly_score = result.get('normalized_score', 0.0)
+            logging.info(f"🧠 ML inference: {ml_latency_ms:.2f}ms, Score: {anomaly_score:.3f}")
+            return anomaly_score, ml_latency_ms
+        else:
+            logging.warning(f"⚠️ ML service returned {response.status_code}")
+            return 0.0, ml_latency_ms
+            
+    except Exception as e:
+        ml_latency_ms = (time.time() - ml_start_time) * 1000
+        logging.error(f"❌ ML service error: {e}")
+        return 0.0, ml_latency_ms
+
+
+def save_vitals_to_database(vitals, hospital, dept, ward, patient_id):
+    """
+    Save encrypted vitals to database via Web Dashboard API
+    Uses AES-256 encryption for data at rest
+    """
+    try:
+        # Initialize cipher
+        cipher = get_aes_cipher()
+        
+        # Prepare complete vitals record
+        vitals_record = {
+            'patient_id': patient_id,
+            'hospital': hospital,
+            'department': dept,
+            'ward': ward,
+            'heart_rate': vitals.get('heart_rate'),
+            'spo2': vitals.get('spo2'),
+            'bp_systolic': vitals.get('bp_systolic'),
+            'bp_diastolic': vitals.get('bp_diastolic'),
+            'respiratory_rate': vitals.get('respiratory_rate'),
+            'temperature': vitals.get('temperature'),
+            'etco2': vitals.get('etco2'),
+            'fio2': vitals.get('fio2', 21),
+            'wbc_count': vitals.get('wbc_count'),
+            'lactate': vitals.get('lactate'),
+            'blood_glucose': vitals.get('blood_glucose'),
+            'anomaly_score': vitals.get('anomaly_score', 0.0),
+            'timestamp': vitals.get('timestamp', time.time())
+        }
+        
+        # Encrypt the vitals data
+        vitals_json = json.dumps(vitals_record).encode()
+        encrypted_vitals = cipher.encrypt(vitals_json)
+        encrypted_b64 = base64.b64encode(encrypted_vitals).decode()
+        
+        # Send to Web Dashboard API
+        api_url = f"{WEB_DASHBOARD_URL}/api/vitals/save"
+        payload = {
+            'encrypted_data': encrypted_b64,
+            'patient_id': patient_id
+        }
+        
+        response = requests.post(api_url, json=payload, timeout=2)
+        
+        if response.status_code == 200:
+            logging.debug(f"💾 Saved encrypted vitals to DB: Patient {patient_id}")
+            return True
+        else:
+            logging.warning(f"⚠️ DB save failed: {response.status_code}")
+            return False
+            
+    except Exception as e:
+        logging.error(f"❌ Database save error: {e}")
+        return False
 
 
 def process_patient_data(vitals, hospital, dept, ward, patient_id):
@@ -223,7 +340,16 @@ def on_mqtt_message(client, userdata, msg):
             vitals = mqtt_payload.get('vitals', {})
             logging.warning(f"⚠️  Received PLAIN data from {device_id} (security risk!)")
         
-        # Process the vitals - MEASURE PROCESSING TIME
+        # NEW: Call ML service if anomaly_score not present
+        if 'anomaly_score' not in vitals or vitals.get('anomaly_score') == 0:
+            anomaly_score, ml_latency = call_ml_service(vitals)
+            vitals['anomaly_score'] = anomaly_score
+            logging.info(f"🧠 Backend ML call: {ml_latency:.2f}ms, Score: {anomaly_score:.3f}")
+        
+        # NEW: Save encrypted vitals to database (PATH 2)
+        save_vitals_to_database(vitals, hospital, dept, ward, patient_id)
+        
+        # Process the vitals - MEASURE PROCESSING TIME (PATH 1: RAM + Prometheus)
         processing_start = time.time()
         process_patient_data(vitals, hospital, dept, ward, patient_id)
         processing_time_ms = (time.time() - processing_start) * 1000

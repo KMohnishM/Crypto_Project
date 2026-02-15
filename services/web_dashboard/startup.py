@@ -33,9 +33,9 @@ def main():
     # Start the Flask application
     print("🌐 Starting Flask application...")
     try:
-        # Import and run the Flask app
-        from app import app
-        app.run(host='0.0.0.0', port=5000, debug=False)
+        # Import and run the Flask app with SocketIO
+        from app import app, socketio
+        socketio.run(app, host='0.0.0.0', port=5000, debug=False)
     except ImportError as e:
         print(f"❌ Failed to import Flask app: {e}")
         sys.exit(1)

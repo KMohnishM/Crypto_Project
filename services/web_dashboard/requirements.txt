@@ -10,5 +10,7 @@ flask-sqlalchemy==2.5.1
 sqlalchemy<1.4.0
 pysqlcipher3==1.2.0
 cryptography==41.0.7
+flask-socketio==4.3.1
+python-socketio==4.6.0
 # Uncomment the line below if you want to use image manipulation features
 # pillow==9.5.0

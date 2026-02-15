@@ -8,6 +8,7 @@ import time
 import random
 from flask_login import LoginManager, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_socketio import SocketIO, emit
 
 # Import database with encryption support
 from database_encrypted import init_encrypted_db, db
@@ -29,6 +30,9 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database with encryption support
 init_encrypted_db(app)
+
+# Initialize SocketIO for real-time updates
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Initialize Flask-Login
 login_manager = LoginManager()
@@ -256,4 +260,4 @@ with app.app_context():
         print("📝 Run: docker exec web_dashboard python simple_db_init.py")
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True)

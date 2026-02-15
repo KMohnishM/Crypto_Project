@@ -105,6 +105,11 @@ class PatientVitalSign(db.Model):
     respiratory_rate = db.Column(db.Float)
     temperature = db.Column(db.Float)
     etco2 = db.Column(db.Float)
+    fio2 = db.Column(db.Float)
+    blood_glucose = db.Column(db.Float)
+    lactate = db.Column(db.Float)
+    wbc_count = db.Column(db.Float)
+    anomaly_score = db.Column(db.Float)
     recorded_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     recorded_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -123,6 +128,11 @@ class PatientVitalSign(db.Model):
             'respiratory_rate': self.respiratory_rate,
             'temperature': self.temperature,
             'etco2': self.etco2,
+            'fio2': self.fio2,
+            'blood_glucose': self.blood_glucose,
+            'lactate': self.lactate,
+            'wbc_count': self.wbc_count,
+            'anomaly_score': self.anomaly_score,
             'recorded_by': self.user.get_full_name() if self.user else None,
             'recorded_at': self.recorded_at.isoformat()
         }
