@@ -1,4 +1,0 @@
-# Secure key storage - DO NOT COMMIT
-device_keys.json
-backend_keys.json
-*.key
