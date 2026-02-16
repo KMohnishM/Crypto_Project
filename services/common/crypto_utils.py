@@ -319,6 +319,7 @@ if __name__ == "__main__":
     # Encode for transmission
     encoded = encode_payload(ciphertext, nonce)
     print(f"📤 Encoded for MQTT: {len(encoded['ciphertext'])} chars")
+    print(f"{encoded}")
     
     # Decode
     decoded_ct, decoded_nonce = decode_payload(encoded)
