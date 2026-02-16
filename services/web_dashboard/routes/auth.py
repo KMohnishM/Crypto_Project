@@ -31,21 +31,9 @@ def login():
             
         # Update last login time
         user.last_login = datetime.utcnow()
-        
-        # Create session record
-        session = UserSession(
-            session_id=request.cookies.get('session'),
-            user_id=user.id,
-            ip_address=request.remote_addr,
-            user_agent=request.user_agent.string,
-            expires_at=datetime.utcnow() + timedelta(days=30) if remember else None
-        )
-        
-        # Commit changes to database
-        db.session.add(session)
         db.session.commit()
         
-        # Log in user
+        # Log in user (Flask-Login handles session management)
         login_user(user, remember=remember)
         
         # Redirect to the page the user was trying to access
@@ -60,7 +48,7 @@ def login():
 @auth.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for('main.dashboard'))
         
     if request.method == 'POST':
         username = request.form.get('username')
@@ -101,19 +89,9 @@ def register():
 @auth.route('/logout')
 @login_required
 def logout():
-    # Find and invalidate the current session
-    session = UserSession.query.filter_by(
-        session_id=request.cookies.get('session'),
-        user_id=current_user.id
-    ).first()
-    
-    if session:
-        db.session.delete(session)
-        db.session.commit()
-    
     logout_user()
     flash('You have been logged out.')
-    return redirect(url_for('auth.login'))
+    return redirect(url_for('main.index'))
 
 @auth.route('/profile')
 @login_required
@@ -145,7 +123,7 @@ def edit_profile():
 def admin_users():
     if not current_user.has_permission('manage_users'):
         flash('You do not have permission to access this page.')
-        return redirect(url_for('index'))
+        return redirect(url_for('main.dashboard'))
         
     users = User.query.all()
     return render_template('auth/admin_users.html', users=users)
@@ -155,7 +133,7 @@ def admin_users():
 def admin_edit_user(user_id):
     if not current_user.has_permission('manage_users'):
         flash('You do not have permission to access this page.')
-        return redirect(url_for('index'))
+        return redirect(url_for('main.dashboard'))
         
     user = User.query.get_or_404(user_id)
     
@@ -183,7 +161,7 @@ def admin_edit_user(user_id):
 def admin_create_user():
     if not current_user.has_permission('manage_users'):
         flash('You do not have permission to access this page.')
-        return redirect(url_for('index'))
+        return redirect(url_for('main.dashboard'))
         
     if request.method == 'POST':
         username = request.form.get('username')

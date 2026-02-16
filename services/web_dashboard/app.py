@@ -32,7 +32,53 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 init_encrypted_db(app)
 
 # Initialize SocketIO for real-time updates
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+
+# Background thread for broadcasting vitals
+def broadcast_vitals():
+    """Background thread that fetches data from main_host and broadcasts via WebSocket"""
+    import time as time_module
+    
+    # Wait for services to start
+    print("🔴 WebSocket broadcast thread waiting for services to start...")
+    time_module.sleep(10)
+    
+    print("🔴 Starting WebSocket broadcast thread...")
+    consecutive_failures = 0
+    max_failures_before_backoff = 3
+    
+    while True:
+        try:
+            # Fetch latest data from main_host
+            response = requests.get(f"{MAIN_HOST_URL}/api/dashboard-data", timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    # Broadcast to all connected clients
+                    socketio.emit('vitals_update', data, namespace='/')
+                    consecutive_failures = 0  # Reset on success
+            time_module.sleep(2)  # Broadcast every 2 seconds
+        except requests.exceptions.RequestException as e:
+            consecutive_failures += 1
+            if consecutive_failures <= max_failures_before_backoff:
+                print(f"⚠️ Error fetching vitals (attempt {consecutive_failures}): {str(e)[:100]}")
+            
+            # Use exponential backoff after multiple failures
+            if consecutive_failures >= max_failures_before_backoff:
+                sleep_time = min(30, 5 * (2 ** (consecutive_failures - max_failures_before_backoff)))
+                if consecutive_failures == max_failures_before_backoff:
+                    print(f"⚠️ Multiple failures, backing off to {sleep_time}s intervals...")
+                time_module.sleep(sleep_time)
+            else:
+                time_module.sleep(5)
+        except Exception as e:
+            print(f"⚠️ Unexpected error in broadcast thread: {e}")
+            time_module.sleep(10)
+
+# Start background thread
+import threading
+vitals_thread = threading.Thread(target=broadcast_vitals, daemon=True)
+vitals_thread.start()
 
 # Initialize Flask-Login
 login_manager = LoginManager()
@@ -230,14 +276,15 @@ def get_recent_alerts():
 # Create database tables within application context
 with app.app_context():
     try:
-        # Create all tables
+        # Try to create all tables
         db.create_all()
         print("✅ Database tables created/verified")
         
-        # Try to create admin user if no users exist
+        # Verify tables exist by checking if we can query users
         try:
             user_count = User.query.count()
             if user_count == 0:
+                # Create admin user
                 admin = User(
                     username='admin',
                     email='admin@hospital.com',
@@ -252,12 +299,14 @@ with app.app_context():
             else:
                 print(f"ℹ️  Database has {user_count} users already")
         except Exception as user_error:
-            print(f"⚠️  Could not create admin user: {user_error}")
-            print("📝 You may need to run: docker exec web_dashboard python simple_db_init.py")
+            # Tables don't exist or can't be queried
+            print(f"⚠️  Could not verify/create admin user: {user_error}")
+            print("📝 Run: docker exec web_dashboard python simple_db_init.py")
+            print("📝 Or restart container to trigger automatic initialization")
             
     except Exception as db_error:
         print(f"❌ Database initialization error: {db_error}")
         print("📝 Run: docker exec web_dashboard python simple_db_init.py")
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)

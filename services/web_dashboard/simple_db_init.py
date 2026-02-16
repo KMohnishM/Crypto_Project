@@ -1,27 +1,56 @@
 #!/usr/bin/env python3
 """
 Simple database initialization script that always works
+Supports both plain SQLite and SQLCipher encrypted databases
 """
 import os
-import sqlite3
+import sys
 from datetime import datetime
 
 def create_simple_database():
     """Create database and tables using raw SQL"""
     
-    # Define the database path
-    db_path = 'healthcare.db'
+    # Define the database path - must match Flask app configuration
+    # Flask uses: DATABASE_URL=sqlite:///instance/healthcare.db
+    db_dir = 'instance'
+    db_path = os.path.join(db_dir, 'healthcare.db')
+    
+    # Create instance directory if it doesn't exist
+    os.makedirs(db_dir, exist_ok=True)
     
     print("🏥 Creating Hospital Database...")
+    print(f"📁 Database location: {db_path}")
+    
+    # Check if encryption is enabled
+    ENABLE_DB_ENCRYPTION = os.getenv('ENABLE_DB_ENCRYPTION', 'false').lower() == 'true'
+    DB_ENCRYPTION_KEY = os.getenv('DB_ENCRYPTION_KEY', 'dev-db-key-change-in-production')
     
     # Remove existing database if it exists
     if os.path.exists(db_path):
         os.remove(db_path)
         print("🗑️  Removed existing database")
     
-    # Create new database connection
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
+    # Try to use SQLCipher if encryption is enabled
+    if ENABLE_DB_ENCRYPTION:
+        try:
+            from pysqlcipher3 import dbapi2 as sqlcipher
+            conn = sqlcipher.connect(db_path)
+            cursor = conn.cursor()
+            # Set encryption key
+            cursor.execute(f"PRAGMA key = '{DB_ENCRYPTION_KEY}'")
+            cursor.execute("PRAGMA cipher_page_size = 4096")
+            print("🔐 Using SQLCipher encryption")
+        except ImportError:
+            print("⚠️  SQLCipher not available, falling back to plain SQLite")
+            import sqlite3
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+    else:
+        # Use plain SQLite
+        import sqlite3
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        print("📝 Using plain SQLite (encryption disabled)")
     
     try:
         # Create users table

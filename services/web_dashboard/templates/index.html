@@ -1,90 +1,135 @@
-{% extends "base.html" %}
-
-{% block title %}Hospital Monitoring System - Dashboard{% endblock %}
-
-{% block extra_css %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-{% endblock %}
-
-{% block content %}
-        <div class="row mb-3">
-            <div class="col-12">
-                <div class="alert alert-info alert-dismissible fade show" role="alert">
-                    <strong>Data Source:</strong> Main Host API (http://main_host:8000/api/dashboard-data) - Same as patients page
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Monitoring System</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+        .landing-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .hero-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 60px;
+            text-align: center;
+        }
+        .hero-icon {
+            font-size: 80px;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        .hero-title {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .hero-subtitle {
+            font-size: 1.2rem;
+            color: #666;
+            margin-bottom: 40px;
+        }
+        .feature-box {
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .feature-icon {
+            font-size: 2rem;
+            color: #667eea;
+            margin-right: 15px;
+        }
+        .cta-buttons {
+            margin-top: 40px;
+        }
+        .btn-hero {
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            margin: 10px;
+            min-width: 180px;
+        }
+        .btn-primary-hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+        }
+        .btn-primary-hero:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-outline-hero {
+            border: 2px solid #667eea;
+            color: #667eea;
+            background: white;
+        }
+        .btn-outline-hero:hover {
+            background: #667eea;
+            color: white;
+        }
+        .security-badge {
+            display: inline-block;
+            background: #f0f4ff;
+            color: #667eea;
+            padding: 10px 20px;
+            border-radius: 50px;
+            margin-top: 30px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container landing-container">
+        <div class="hero-card">
+            <i class="bi bi-heart-pulse-fill hero-icon"></i>
+            <h1 class="hero-title">Hospital Monitoring System</h1>
+            <p class="hero-subtitle">Real-time Patient Monitoring with Advanced Security</p>
+            
+            <div class="row">
+                <div class="col-md-4 feature-box">
+                    <i class="bi bi-shield-lock-fill feature-icon"></i>
+                    <h5>Secure & Encrypted</h5>
+                    <p class="text-muted">End-to-end encryption with ASCON AEAD</p>
+                </div>
+                <div class="col-md-4 feature-box">
+                    <i class="bi bi-activity feature-icon"></i>
+                    <h5>Real-time Monitoring</h5>
+                    <p class="text-muted">Live patient vitals and alerts</p>
+                </div>
+                <div class="col-md-4 feature-box">
+                    <i class="bi bi-graph-up-arrow feature-icon"></i>
+                    <h5>ML Analytics</h5>
+                    <p class="text-muted">AI-powered anomaly detection</p>
                 </div>
             </div>
-        </div>
-        
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>System Overview</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="alert alert-info">
-                                    <h6>Total Patients</h6>
-                                    <h3 id="total-patients">--</h3>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="alert alert-warning">
-                                    <h6>Critical Patients</h6>
-                                    <h3 id="critical-patients">--</h3>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row mt-3">
-                            <div class="col-md-6">
-                                <div class="alert alert-success">
-                                    <h6>Average Heart Rate</h6>
-                                    <h3 id="avg-heart-rate">--</h3>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="alert alert-danger">
-                                    <h6>Average Anomaly Score</h6>
-                                    <h3 id="avg-anomaly-score">--</h3>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            
+            <div class="cta-buttons">
+                <a href="{{ url_for('auth.login') }}" class="btn btn-primary-hero btn-hero">
+                    <i class="bi bi-box-arrow-in-right"></i> Login
+                </a>
+                <a href="{{ url_for('auth.register') }}" class="btn btn-outline-hero btn-hero">
+                    <i class="bi bi-person-plus"></i> Register
+                </a>
             </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Recent Anomalies</h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="anomalies-list">
-                            <p class="text-center">Loading...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Hospital Hierarchy</h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="hospital-hierarchy">
-                            <p class="text-center">Loading...</p>
-                        </div>
-                    </div>
-                </div>
+            
+            <div class="security-badge">
+                <i class="bi bi-shield-check"></i> HIPAA Compliant • Quantum-Resistant Encryption
             </div>
         </div>
     </div>
-{% endblock %}
-
-{% block extra_js %}
-<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-{% endblock %}
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

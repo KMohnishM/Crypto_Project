@@ -13,7 +13,21 @@ This system implements a **5-phase layered security architecture** to protect se
 - **Phase 4: SQLCipher Database Encryption** - Encrypted SQLite database for patient records
 - **Phase 5: Complete Docker Deployment** - Containerized architecture for production use
 
-## 📋 What This Does
+## � Quick Start - Login Credentials
+
+**Default Admin Account:**
+```
+Username: admin
+Password: admin
+```
+
+⚠️ **IMPORTANT:** Change the default admin password immediately after first login!
+
+**Access the Web Dashboard:** `http://localhost:5000`
+
+For detailed user guide including user roles, permissions, and complete user flow, see **[USER_GUIDE.md](USER_GUIDE.md)**
+
+## �📋 What This Does
 
 This system monitors patient vital signs (heart rate, SpO2, blood pressure, temperature, etc.) and provides:
 

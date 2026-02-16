@@ -45,6 +45,9 @@
         <p class="lead">Welcome back, {{ current_user.first_name }}!</p>
     </div>
     <div class="col-auto">
+        <span id="websocket-status" class="me-2">
+            <span class="spinner-border spinner-border-sm" role="status"></span> Connecting...
+        </span>
         <a href="{{ url_for('main.monitoring') }}" class="btn btn-primary">
             <i class="bi bi-heart-pulse"></i> Live Monitoring
         </a>
@@ -61,33 +64,9 @@
                 </div>
                 <div>
                     <h6 class="card-subtitle mb-1 text-muted">Total Patients</h6>
-                    <h3 class="card-title mb-0">24</h3>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card stats-card mb-3">
-            <div class="card-body d-flex align-items-center">
-                <div class="stats-icon bg-success text-white">
-                    <i class="bi bi-clipboard2-check"></i>
-                </div>
-                <div>
-                    <h6 class="card-subtitle mb-1 text-muted">Normal Status</h6>
-                    <h3 class="card-title mb-0">19</h3>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card stats-card mb-3">
-            <div class="card-body d-flex align-items-center">
-                <div class="stats-icon bg-warning text-white">
-                    <i class="bi bi-exclamation-triangle"></i>
-                </div>
-                <div>
-                    <h6 class="card-subtitle mb-1 text-muted">Warnings</h6>
-                    <h3 class="card-title mb-0">4</h3>
+                    <h3 class="card-title mb-0" id="total-patients">
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                    </h3>
                 </div>
             </div>
         </div>
@@ -100,7 +79,39 @@
                 </div>
                 <div>
                     <h6 class="card-subtitle mb-1 text-muted">Critical Alerts</h6>
-                    <h3 class="card-title mb-0">1</h3>
+                    <h3 class="card-title mb-0" id="critical-patients">
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                    </h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stats-card mb-3">
+            <div class="card-body d-flex align-items-center">
+                <div class="stats-icon bg-warning text-white">
+                    <i class="bi bi-heart-fill"></i>
+                </div>
+                <div>
+                    <h6 class="card-subtitle mb-1 text-muted">Avg Heart Rate</h6>
+                    <h3 class="card-title mb-0" id="avg-heart-rate">
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                    </h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stats-card mb-3">
+            <div class="card-body d-flex align-items-center">
+                <div class="stats-icon bg-info text-white">
+                    <i class="bi bi-graph-up"></i>
+                </div>
+                <div>
+                    <h6 class="card-subtitle mb-1 text-muted">Avg Anomaly Score</h6>
+                    <h3 class="card-title mb-0" id="avg-anomaly-score">
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                    </h3>
                 </div>
             </div>
         </div>
@@ -108,54 +119,20 @@
 </div>
 
 <div class="row">
-    <!-- Patient List -->
+    <!-- Patient Anomalies List -->
     <div class="col-md-6">
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Recent Patients</h5>
-                <a href="{{ url_for('patients.list_patients') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                <h5 class="mb-0">Top Anomalies</h5>
+                <a href="{{ url_for('patients.list_patients') }}" class="btn btn-sm btn-outline-primary">View All Patients</a>
             </div>
             <div class="card-body p-0">
-                <div class="list-group patient-list">
-                    <div class="list-group-item list-group-item-action">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">John Doe</h6>
-                            <span class="badge bg-danger alert-status">Critical</span>
+                <div id="anomalies-list">
+                    <div class="text-center p-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
                         </div>
-                        <p class="mb-1">Room 101 • ID: P001</p>
-                        <small class="text-muted">Heart Rate: 135 bpm (High)</small>
-                    </div>
-                    <div class="list-group-item list-group-item-action">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">Jane Smith</h6>
-                            <span class="badge bg-warning alert-status">Warning</span>
-                        </div>
-                        <p class="mb-1">Room 102 • ID: P002</p>
-                        <small class="text-muted">Blood Oxygen: 92% (Low)</small>
-                    </div>
-                    <div class="list-group-item list-group-item-action">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">Robert Johnson</h6>
-                            <span class="badge bg-warning alert-status">Warning</span>
-                        </div>
-                        <p class="mb-1">Room 103 • ID: P003</p>
-                        <small class="text-muted">Temperature: 38.5°C (Elevated)</small>
-                    </div>
-                    <div class="list-group-item list-group-item-action">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">Maria Garcia</h6>
-                            <span class="badge bg-warning alert-status">Warning</span>
-                        </div>
-                        <p class="mb-1">Room 104 • ID: P004</p>
-                        <small class="text-muted">Blood Pressure: 145/95 (High)</small>
-                    </div>
-                    <div class="list-group-item list-group-item-action">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">William Brown</h6>
-                            <span class="badge bg-success alert-status">Normal</span>
-                        </div>
-                        <p class="mb-1">Room 105 • ID: P005</p>
-                        <small class="text-muted">All vitals normal</small>
+                        <p class="mt-2 text-muted">Loading patient data...</p>
                     </div>
                 </div>
             </div>
@@ -198,43 +175,54 @@
                 </div>
             </div>
             
-            <!-- System Status -->
+            <!-- Hospital Hierarchy -->
             <div class="col-12">
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h5 class="mb-0">System Status</h5>
+                        <h5 class="mb-0">Hospital Hierarchy</h5>
                     </div>
-                    <div class="card-body p-0">
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <i class="bi bi-server text-success me-2"></i> Main Host
-                                </div>
-                                <span class="badge bg-success">Online</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <i class="bi bi-cpu text-success me-2"></i> ML Service
-                                </div>
-                                <span class="badge bg-success">Online</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <i class="bi bi-database text-success me-2"></i> Local Database
-                                </div>
-                                <span class="badge bg-success">Connected</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <i class="bi bi-graph-up text-success me-2"></i> Grafana
-                                </div>
-                                <span class="badge bg-success">Online</span>
-                            </li>
-                        </ul>
+                    <div class="card-body" id="hospital-hierarchy" style="max-height: 400px; overflow-y: auto;">
+                        <div class="text-center p-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Loading hierarchy...</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Socket.IO Client Library -->
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<!-- Dashboard JavaScript -->
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<!-- WebSocket Real-time Updates -->
+<script src="{{ url_for('static', filename='js/websocket.js') }}"></script>
+<style>
+.hierarchy-node {
+    padding: 8px;
+    margin: 5px 0;
+    border-left: 3px solid #ccc;
+    padding-left: 15px;
+}
+.hierarchy-hospital {
+    border-left-color: #0d6efd;
+    background-color: #e7f1ff;
+}
+.hierarchy-department {
+    border-left-color: #6c757d;
+    background-color: #f8f9fa;
+    margin-left: 20px;
+}
+.hierarchy-ward {
+    border-left-color: #198754;
+    background-color: #d1e7dd;
+    margin-left: 40px;
+}
+</style>
 {% endblock %}

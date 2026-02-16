@@ -15,8 +15,9 @@ from utils.api import main_host_api
 
 # Patient views (HTML pages)
 @patients.route('/')
+@login_required
 def list_patients():
-    """Show list of all patients (public, no login required)"""
+    """Show list of all patients - requires authentication"""
     # Try to get data from main host first
     dashboard_data = main_host_api.get_dashboard_data()
     patients_list = []

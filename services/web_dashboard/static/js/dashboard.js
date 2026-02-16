@@ -2,8 +2,18 @@
 
 // Initialize the dashboard
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Initializing dashboard...');
+    
+    // Initial fetch
     fetchDashboardData();
-    setInterval(fetchDashboardData, 10000); // Refresh every 10 seconds
+    
+    // Fallback polling (30 seconds) - WebSocket will provide real-time updates
+    setInterval(fetchDashboardData, 30000);
+    
+    // Initialize WebSocket for real-time updates
+    if (typeof initWebSocket === 'function') {
+        initWebSocket();
+    }
 });
 
 // Fetch dashboard data

@@ -46,8 +46,19 @@ function initWebSocket() {
     
     // Listen for vitals updates
     socket.on('vitals_update', function(data) {
-        console.log('📊 Received vitals update:', data);
-        handleVitalsUpdate(data);
+        console.log('📊 Received vitals update via WebSocket');
+        // Update dashboard with live data
+        if (data.status === 'success' && data.data) {
+            if (typeof updateDashboardWidgets === 'function') {
+                updateDashboardWidgets(data.data);
+            }
+            if (typeof updateAnomaliesList === 'function') {
+                updateAnomaliesList(data.data);
+            }
+            if (typeof updateHospitalHierarchy === 'function') {
+                updateHospitalHierarchy(data.data);
+            }
+        }
     });
 }
 

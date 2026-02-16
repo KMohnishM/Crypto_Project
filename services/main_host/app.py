@@ -14,6 +14,7 @@ import paho.mqtt.client as mqtt
 import ssl
 import threading
 import time
+import requests
 
 # Add common directory to path for crypto utilities
 sys.path.insert(0, '/app/common')
@@ -33,6 +34,10 @@ MQTT_BROKER = os.getenv('MQTT_BROKER', 'mosquitto')
 MQTT_PORT = int(os.getenv('MQTT_PORT_TLS', '8883'))
 MQTT_PORT_PLAIN = int(os.getenv('MQTT_PORT_PLAIN', '1883'))
 USE_TLS = os.getenv('USE_TLS', 'true').lower() == 'true'
+
+# ML Service Configuration
+ML_SERVICE_URL = os.getenv('ML_SERVICE_URL', 'http://ml_service:6000')
+ENABLE_ML_INFERENCE = os.getenv('ENABLE_ML_INFERENCE', 'true').lower() == 'true'
 
 # Initialize key manager
 key_manager = None
@@ -80,7 +85,7 @@ latency_metrics = {
 }
 
 # Track current latency values for dashboard
-current_latency = defaultdict(lambda: {'decryption': 0, 'processing': 0, 'end_to_end': 0})
+current_latency = defaultdict(lambda: {'decryption': 0, 'processing': 0, 'end_to_end': 0, 'ml_inference': 0})
 
 # In-memory data store for the dashboard
 patient_data_store = defaultdict(list)
@@ -88,8 +93,84 @@ patient_data_store = defaultdict(list)
 # MQTT connection status
 mqtt_connected = False
 
+# ML service metrics
+ml_metrics = {
+    'ml_inference': Histogram('ml_inference_latency_ms', 'ML inference latency (ms)', ['device_id'],
+                             buckets=[0.5, 1, 2, 5, 10, 25, 50, 100, 250]),
+    'ml_success': Gauge('ml_inference_success_total', 'Successful ML inferences'),
+    'ml_failure': Gauge('ml_inference_failure_total', 'Failed ML inferences', ['reason']),
+}
 
-def process_patient_data(vitals, hospital, dept, ward, patient_id):
+
+def call_ml_service(vitals_data, device_id='unknown'):
+    """
+    Call ML service to get anomaly score
+    Backend calls this after decrypting patient vitals
+    
+    Args:
+        vitals_data: Dictionary of patient vital signs
+        device_id: Device identifier for metrics tracking
+    
+    Returns:
+        tuple: (anomaly_score, ml_latency_ms)
+    """
+    if not ENABLE_ML_INFERENCE:
+        return 0.0, 0.0
+    
+    ml_start_time = time.time()
+    
+    try:
+        # Prepare payload for ML service
+        ml_payload = {
+            'heart_rate': vitals_data.get('heart_rate', 75),
+            'bp_systolic': vitals_data.get('bp_systolic', 120),
+            'bp_diastolic': vitals_data.get('bp_diastolic', 80),
+            'respiratory_rate': vitals_data.get('respiratory_rate', 16),
+            'spo2': vitals_data.get('spo2', 95),
+            'etco2': vitals_data.get('etco2', 35),
+            'fio2': vitals_data.get('fio2', 21),
+            'temperature': vitals_data.get('temperature', 37.0),
+            'wbc_count': vitals_data.get('wbc_count', 7.0),
+            'lactate': vitals_data.get('lactate', 1.2),
+            'blood_glucose': vitals_data.get('blood_glucose', 95)
+        }
+        
+        response = requests.post(f"{ML_SERVICE_URL}/predict", json=ml_payload, timeout=3)
+        ml_latency_ms = (time.time() - ml_start_time) * 1000
+        
+        if response.status_code == 200:
+            result = response.json()
+            anomaly_score = result.get('normalized_score', 0.0)
+            logging.info(f"🧠 ML inference: {ml_latency_ms:.2f}ms, Score: {anomaly_score:.3f}")
+            
+            # Record metrics
+            ml_metrics['ml_inference'].labels(device_id=device_id).observe(ml_latency_ms)
+            ml_metrics['ml_success'].inc()
+            
+            return anomaly_score, ml_latency_ms
+        else:
+            logging.warning(f"⚠️ ML service returned {response.status_code}")
+            ml_metrics['ml_failure'].labels(reason=f'http_{response.status_code}').inc()
+            return 0.0, ml_latency_ms
+            
+    except requests.exceptions.Timeout:
+        ml_latency_ms = (time.time() - ml_start_time) * 1000
+        logging.error(f"❌ ML service timeout after {ml_latency_ms:.2f}ms")
+        ml_metrics['ml_failure'].labels(reason='timeout').inc()
+        return 0.0, ml_latency_ms
+    except requests.exceptions.ConnectionError:
+        ml_latency_ms = (time.time() - ml_start_time) * 1000
+        logging.error(f"❌ ML service connection error")
+        ml_metrics['ml_failure'].labels(reason='connection_error').inc()
+        return 0.0, ml_latency_ms
+    except Exception as e:
+        ml_latency_ms = (time.time() - ml_start_time) * 1000
+        logging.error(f"❌ ML service error: {e}")
+        ml_metrics['ml_failure'].labels(reason='exception').inc()
+        return 0.0, ml_latency_ms
+
+
+def process_patient_data(vitals, hospital, dept, ward, patient_id, device_id='unknown'):
     """
     Process decrypted patient vitals and update metrics
     
@@ -99,7 +180,14 @@ def process_patient_data(vitals, hospital, dept, ward, patient_id):
         dept: Department identifier
         ward: Ward identifier
         patient_id: Patient identifier
+        device_id: Device identifier for ML metrics
     """
+    # Call ML service to get anomaly score (if not already present)
+    if 'anomaly_score' not in vitals or vitals.get('anomaly_score', 0) == 0:
+        anomaly_score, ml_latency_ms = call_ml_service(vitals, device_id)
+        vitals['anomaly_score'] = anomaly_score
+        current_latency[device_id]['ml_inference'] = ml_latency_ms
+    
     labels = dict(hospital=hospital, department=dept, ward=ward, patient=patient_id)
 
     # Update Prometheus metrics
@@ -222,9 +310,9 @@ def on_mqtt_message(client, userdata, msg):
             vitals = mqtt_payload.get('vitals', {})
             logging.warning(f"⚠️  Received PLAIN data from {device_id} (security risk!)")
         
-        # Process the vitals - MEASURE PROCESSING TIME
+        # Process the vitals - MEASURE PROCESSING TIME (includes ML inference)
         processing_start = time.time()
-        process_patient_data(vitals, hospital, dept, ward, patient_id)
+        process_patient_data(vitals, hospital, dept, ward, patient_id, device_id)
         processing_time_ms = (time.time() - processing_start) * 1000
         
         # Record processing latency
@@ -374,6 +462,7 @@ def get_latency():
                 'decryption_ms': round(metrics.get('decryption', 0), 3),
                 'processing_ms': round(metrics.get('processing', 0), 3),
                 'network_ms': round(metrics.get('network', 0), 3),
+                'ml_inference_ms': round(metrics.get('ml_inference', 0), 3),
                 'end_to_end_ms': round(metrics.get('end_to_end', 0), 3)
             }
         
@@ -400,6 +489,7 @@ def get_device_latency(device_id):
                 'decryption_ms': round(metrics.get('decryption', 0), 3),
                 'processing_ms': round(metrics.get('processing', 0), 3),
                 'network_ms': round(metrics.get('network', 0), 3),
+                'ml_inference_ms': round(metrics.get('ml_inference', 0), 3),
                 'end_to_end_ms': round(metrics.get('end_to_end', 0), 3)
             }
         })

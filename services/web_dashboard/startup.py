@@ -12,7 +12,11 @@ def main():
     print("🚀 Starting Hospital Web Dashboard...")
     
     # Check if database exists and is not empty
-    db_path = "/app/healthcare.db"
+    # Must match Flask app configuration: DATABASE_URL=sqlite:///instance/healthcare.db
+    db_path = "/app/instance/healthcare.db"
+    
+    # Ensure instance directory exists
+    os.makedirs("/app/instance", exist_ok=True)
     
     if not os.path.exists(db_path) or os.path.getsize(db_path) == 0:
         print("🏥 Initializing database...")
@@ -35,7 +39,7 @@ def main():
     try:
         # Import and run the Flask app with SocketIO
         from app import app, socketio
-        socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+        socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)
     except ImportError as e:
         print(f"❌ Failed to import Flask app: {e}")
         sys.exit(1)
