@@ -284,18 +284,22 @@ with app.app_context():
         try:
             user_count = User.query.count()
             if user_count == 0:
-                # Create admin user
-                admin = User(
-                    username='admin',
-                    email='admin@hospital.com',
-                    first_name='System',
-                    last_name='Administrator',
-                    role='admin'
-                )
-                admin.set_password('admin')
-                db.session.add(admin)
-                db.session.commit()
-                print("✅ Created default admin user: username=admin, password=admin")
+                # Optionally create default admin user
+                CREATE_DEFAULT_ADMIN = os.getenv('CREATE_DEFAULT_ADMIN', 'true').lower() == 'true'
+                if CREATE_DEFAULT_ADMIN:
+                    admin = User(
+                        username='admin',
+                        email='admin@hospital.com',
+                        first_name='System',
+                        last_name='Administrator',
+                        role='admin'
+                    )
+                    admin.set_password('admin')
+                    db.session.add(admin)
+                    db.session.commit()
+                    print("✅ Created default admin user: username=admin, password=admin")
+                else:
+                    print("ℹ️  Skipping creation of default admin (CREATE_DEFAULT_ADMIN=false)")
             else:
                 print(f"ℹ️  Database has {user_count} users already")
         except Exception as user_error:

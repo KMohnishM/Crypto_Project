@@ -126,16 +126,18 @@ def create_simple_database():
         
         print("✅ Database tables created successfully!")
         
-        # Insert default admin user (password hash for 'admin')
+        # Optionally insert a default admin user. Set CREATE_DEFAULT_ADMIN=false to skip.
         from werkzeug.security import generate_password_hash
-        admin_password_hash = generate_password_hash('admin')
-        
-        cursor.execute('''
-            INSERT INTO users (username, email, password_hash, first_name, last_name, role, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', ('admin', 'admin@hospital.com', admin_password_hash, 'System', 'Administrator', 'admin', 1))
-        
-        print("👤 Created admin user: username=admin, password=admin")
+        CREATE_DEFAULT_ADMIN = os.getenv('CREATE_DEFAULT_ADMIN', 'true').lower() == 'true'
+        if CREATE_DEFAULT_ADMIN:
+            admin_password_hash = generate_password_hash('admin')
+            cursor.execute('''
+                INSERT INTO users (username, email, password_hash, first_name, last_name, role, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', ('admin', 'admin@hospital.com', admin_password_hash, 'System', 'Administrator', 'admin', 1))
+            print("👤 Created admin user: username=admin, password=admin")
+        else:
+            print("ℹ️  Skipping creation of default admin (CREATE_DEFAULT_ADMIN=false)")
         
         # Commit changes
         conn.commit()
