@@ -92,12 +92,17 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="role" class="form-label">Role</label>
-                        <select class="form-select" id="role" name="role" required>
-                            <option value="nurse">Nurse</option>
-                            <option value="doctor">Doctor</option>
-                            <option value="admin">Administrator</option>
+                        <label for="requested_role" class="form-label">Requested Role</label>
+                        <select class="form-control" id="requested_role" name="requested_role" required>
+                            <option value="technician" selected>Technician (View Only)</option>
+                            <option value="nurse">Nurse (View + Add Vitals)</option>
+                            <option value="doctor">Doctor (View + Edit + Add)</option>
                         </select>
+                        <small class="form-text text-muted">Select the role you need. Admin will review and approve.</small>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> <strong>Note:</strong> All new accounts start with <strong>Technician</strong> role. An administrator will review your requested role and upgrade your access if approved.
                     </div>
                     
                     <div class="d-grid">

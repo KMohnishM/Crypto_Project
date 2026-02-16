@@ -9,11 +9,11 @@ let connectionStatus = 'disconnected';
 
 // Initialize WebSocket connection
 function initWebSocket() {
-    console.log('🔌 Initializing WebSocket connection...');
+    console.log('🔌 Initializing Socket.IO connection...');
     
-    // Connect to Flask-SocketIO
+    // Connect to Flask-SocketIO with polling transport (websocket upgrade fails in dev server)
     socket = io.connect(window.location.origin, {
-        transports: ['websocket', 'polling'],
+        transports: ['polling'],  // Use polling only for Flask development server compatibility
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionAttempts: 10
@@ -21,25 +21,25 @@ function initWebSocket() {
     
     // Connection events
     socket.on('connect', function() {
-        console.log('✅ WebSocket connected');
+        console.log('✅ Socket.IO connected (polling transport)');
         connectionStatus = 'connected';
         updateConnectionStatus(true);
     });
     
     socket.on('disconnect', function() {
-        console.log('❌ WebSocket disconnected');
+        console.log('❌ Socket.IO disconnected');
         connectionStatus = 'disconnected';
         updateConnectionStatus(false);
     });
     
     socket.on('connect_error', function(error) {
-        console.error('🔴 WebSocket connection error:', error);
+        console.error('🔴 Socket.IO connection error:', error);
         connectionStatus = 'error';
         updateConnectionStatus(false);
     });
     
     socket.on('reconnect', function(attemptNumber) {
-        console.log('🔄 WebSocket reconnected after', attemptNumber, 'attempts');
+        console.log('🔄 Socket.IO reconnected after', attemptNumber, 'attempts');
         connectionStatus = 'connected';
         updateConnectionStatus(true);
     });

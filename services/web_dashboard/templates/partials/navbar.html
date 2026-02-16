@@ -38,7 +38,13 @@
                         <i class="bi bi-activity"></i> Monitoring
                     </a>
                 </li>
-                {# Admin section removed - no admin blueprint available #}
+                {% if current_user.is_authenticated and current_user.role == 'admin' %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint.startswith('auth.admin') %}active{% endif %}" href="{{ url_for('auth.admin_users') }}">
+                        <i class="bi bi-shield-lock"></i> Admin
+                    </a>
+                </li>
+                {% endif %}
             </ul>
             <ul class="navbar-nav">
                 {% if current_user.is_authenticated %}

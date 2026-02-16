@@ -56,6 +56,7 @@ def register():
         password = request.form.get('password')
         first_name = request.form.get('first_name')
         last_name = request.form.get('last_name')
+        requested_role = request.form.get('requested_role', 'technician')
         
         # Check if username or email already exists
         if User.query.filter_by(username=username).first():
@@ -67,13 +68,14 @@ def register():
             return redirect(url_for('auth.register'))
             
         # Create new user - default role is 'technician' for security
-        # Admins can later upgrade role if needed
+        # Admins can later upgrade role based on requested_role
         new_user = User(
             username=username,
             email=email,
             first_name=first_name,
             last_name=last_name,
-            role='technician'  # Default lowest privilege role
+            role='technician',  # Default lowest privilege role
+            requested_role=requested_role  # Store what they requested
         )
         new_user.set_password(password)
         

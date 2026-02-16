@@ -139,43 +139,9 @@
         </div>
     </div>
     
-    <!-- Quick Actions and Alerts -->
+    <!-- Hospital Hierarchy -->
     <div class="col-md-6">
         <div class="row">
-            <!-- Quick Actions -->
-            <div class="col-12">
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Quick Actions</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <a href="{{ url_for('patients.create_patient') }}" class="btn btn-outline-primary quick-action-btn">
-                                    <i class="bi bi-person-plus"></i> Add New Patient
-                                </a>
-                            </div>
-                            <div class="col-md-6">
-                                <a href="{{ url_for('main.monitoring') }}" class="btn btn-outline-primary quick-action-btn">
-                                    <i class="bi bi-heart-pulse"></i> Monitoring Dashboard
-                                </a>
-                            </div>
-                            <div class="col-md-6">
-                                <a href="#" class="btn btn-outline-primary quick-action-btn">
-                                    <i class="bi bi-bell"></i> View All Alerts
-                                </a>
-                            </div>
-                            <div class="col-md-6">
-                                <a href="#" class="btn btn-outline-primary quick-action-btn">
-                                    <i class="bi bi-file-earmark-text"></i> Generate Report
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Hospital Hierarchy -->
             <div class="col-12">
                 <div class="card mb-4">
                     <div class="card-header">
@@ -197,8 +163,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- Socket.IO Client Library -->
-<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<!-- Socket.IO Client Library (v4.7.2 for Flask-SocketIO 5.3.4 compatibility) -->
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js" crossorigin="anonymous"></script>
 <!-- Dashboard JavaScript -->
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 <!-- WebSocket Real-time Updates -->

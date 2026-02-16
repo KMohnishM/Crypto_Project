@@ -63,8 +63,10 @@ def create_simple_database():
                 first_name VARCHAR(50),
                 last_name VARCHAR(50),
                 role VARCHAR(20) NOT NULL,
+                requested_role VARCHAR(20),
                 department VARCHAR(50),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 last_login DATETIME,
                 is_active BOOLEAN DEFAULT 1
             )

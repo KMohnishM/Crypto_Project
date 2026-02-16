@@ -16,8 +16,10 @@ class User(UserMixin, db.Model):
     first_name = db.Column(db.String(50))
     last_name = db.Column(db.String(50))
     role = db.Column(db.String(20), nullable=False)  # 'admin', 'doctor', 'nurse', 'technician'
+    requested_role = db.Column(db.String(20))  # Role requested during registration
     department = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = db.Column(db.DateTime)
     is_active = db.Column(db.Boolean, default=True)
     
