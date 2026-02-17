@@ -17,7 +17,7 @@ def on_message(client,userdata, msg):
     try:
         payload = json.loads(msg.payload.decode('utf-8'))
         device_id = payload['device_id']
-        print(f"\n📥 Received from {device_id}")
+        print(f"\nReceived from {device_id}")
         print(f"Encrypted: {payload['encrypted']}")
         
         if payload['encrypted']:
@@ -40,10 +40,10 @@ def on_message(client,userdata, msg):
             crypto = AsconCrypto(device_key)
             print("Attempting decryption...")
             vitals, decrypt_time = crypto.decrypt(ciphertext, nonce)
-            print(f"⏱️  Decryption time: {decrypt_time:.3f}ms")
-            print(f"✅ SUCCESS: {vitals}")
+            print(f"Decryption time: {decrypt_time:.3f}ms")
+            print(f"SUCCESS: {vitals}")
     except Exception as e:
-        print(f"❌ ERROR: {e}")
+        print(f"ERROR: {e}")
         import traceback
         traceback.print_exc()
 

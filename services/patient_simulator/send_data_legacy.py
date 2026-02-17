@@ -118,9 +118,9 @@ def simulate_traffic(file_path):
                 try:
                     response = requests.post(MAIN_HOST, json=data)
                     if response.status_code == 200:
-                        print(f"✔ Sent | Patient: {data['patient']} | Score: {anomaly_score}")
+                        print(f"SENT | Patient: {data['patient']} | Score: {anomaly_score}")
                     else:
-                        print(f"✘ Failed | Status: {response.status_code} | Patient: {data['patient']}")
+                        print(f"FAILED | Status: {response.status_code} | Patient: {data['patient']}")
                 except requests.exceptions.RequestException as e:
                     print(f"Error while sending data: {e}")
 

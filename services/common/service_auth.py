@@ -192,7 +192,7 @@ class ServiceAuthClient:
 
 # Example usage and testing
 if __name__ == "__main__":
-    print("🧪 Testing Service Authentication...")
+    print("Testing Service Authentication...")
     
     # Generate token
     token = generate_service_token('main_host')
@@ -201,9 +201,9 @@ if __name__ == "__main__":
     # Verify token
     try:
         payload = verify_service_token(token)
-        print(f"✅ Token verified: {payload}")
+        print(f"Token verified: {payload}")
     except ValueError as e:
-        print(f"❌ Verification failed: {e}")
+        print(f"ERROR: Verification failed: {e}")
     
     # Test expired token
     import time
@@ -215,13 +215,13 @@ if __name__ == "__main__":
     time.sleep(1)
     try:
         verify_service_token(expired_token)
-        print("❌ Expired token should have failed")
+        print("ERROR: Expired token should have failed")
     except ValueError as e:
-        print(f"✅ Expired token rejected: {e}")
+        print(f"Expired token rejected: {e}")
     
     # Test client
     client = ServiceAuthClient('test_service')
     headers = client.get_headers()
-    print(f"✅ Client headers: {headers}")
+    print(f"Client headers: {headers}")
     
-    print("\n✅ All service auth tests passed!")
+    print("\nAll service auth tests passed!")

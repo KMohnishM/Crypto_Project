@@ -22,16 +22,16 @@ try:
     from crypto_utils import AsconCrypto, KeyManager, encode_payload
     CRYPTO_AVAILABLE = True
 except ImportError:
-    print("⚠️  WARNING: Crypto utilities not available - running in plain mode")
+    print("WARNING: Crypto utilities not available - running in plain mode")
     CRYPTO_AVAILABLE = False
 
 # Try to import service authentication (lightweight client without Flask deps)
 try:
     from auth_client import ServiceAuthClient
     AUTH_AVAILABLE = True
-    print("🔐 Service authentication available")
+    print("Service authentication available")
 except ImportError:
-    print("⚠️  Service authentication not available")
+    print("WARNING: Service authentication not available")
     AUTH_AVAILABLE = False
     ServiceAuthClient = None
 
@@ -48,16 +48,16 @@ ENABLE_SERVICE_AUTH = os.getenv('ENABLE_SERVICE_AUTH', 'false').lower() == 'true
 ml_client = None
 if AUTH_AVAILABLE and ENABLE_SERVICE_AUTH:
     ml_client = ServiceAuthClient('patient_simulator')
-    print("🔐 ML service authentication enabled")
+    print("ML service authentication enabled")
 
 # Initialize key manager
 key_manager = None
 if CRYPTO_AVAILABLE:
     try:
         key_manager = KeyManager("/app/keys/device_keys.json")
-        print("🔑 Key manager initialized")
+        print("Key manager initialized")
     except Exception as e:
-        print(f"⚠️  Key manager initialization failed: {e}")
+        print(f"WARNING: Key manager initialization failed: {e}")
 
 # MQTT Client
 mqtt_client = None
@@ -70,10 +70,10 @@ def on_mqtt_connect(client, userdata, flags, rc):
     if rc == 0:
         mqtt_connected = True
         tls_status = "with TLS" if USE_TLS else "plain"
-        print(f"✅ Connected to MQTT broker ({tls_status})")
+        print(f"Connected to MQTT broker ({tls_status})")
     else:
         mqtt_connected = False
-        print(f"❌ MQTT connection failed with code {rc}")
+        print(f"ERROR: MQTT connection failed with code {rc}")
 
 
 def on_mqtt_disconnect(client, userdata, rc):
@@ -81,12 +81,12 @@ def on_mqtt_disconnect(client, userdata, rc):
     global mqtt_connected
     mqtt_connected = False
     if rc != 0:
-        print(f"⚠️  Unexpected MQTT disconnection")
+        print(f"WARNING: Unexpected MQTT disconnection")
 
 
 def on_mqtt_publish(client, userdata, mid):
     """MQTT publish confirmation"""
-    pass  # Uncomment for debug: print(f"📤 Message {mid} published")
+    pass  # Uncomment for debug: print(f"Message {mid} published")
 
 
 def init_mqtt():
@@ -109,14 +109,14 @@ def init_mqtt():
                 tls_version=ssl.PROTOCOL_TLSv1_2
             )
             mqtt_client.tls_insecure_set(False)
-            print(f"🔐 TLS configured - connecting to {MQTT_BROKER}:{MQTT_PORT}")
+            print(f"TLS configured - connecting to {MQTT_BROKER}:{MQTT_PORT}")
             mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
         except Exception as e:
-            print(f"❌ TLS connection failed: {e}")
-            print(f"⚠️  Falling back to plain MQTT on port {MQTT_PORT_PLAIN}")
+            print(f"ERROR: TLS connection failed: {e}")
+            print(f"WARNING: Falling back to plain MQTT on port {MQTT_PORT_PLAIN}")
             mqtt_client.connect(MQTT_BROKER, MQTT_PORT_PLAIN, 60)
     else:
-        print(f"⚠️  Connecting to plain MQTT on port {MQTT_PORT_PLAIN}")
+        print(f"WARNING: Connecting to plain MQTT on port {MQTT_PORT_PLAIN}")
         mqtt_client.connect(MQTT_BROKER, MQTT_PORT_PLAIN, 60)
     
     mqtt_client.loop_start()
@@ -128,7 +128,7 @@ def init_mqtt():
         time.sleep(0.5)
     
     if not mqtt_connected:
-        print("⚠️  MQTT connection timeout - messages will be queued")
+        print("WARNING: MQTT connection timeout - messages will be queued")
 
 
 # Read Excel file with multiple sheets
@@ -217,7 +217,7 @@ def publish_encrypted_vitals(patient_data, anomaly_score):
     This simulates ESP32 device behavior
     """
     if not mqtt_connected:
-        print("⚠️  MQTT not connected - skipping publish")
+        print("WARNING: MQTT not connected - skipping publish")
         return False
     
     # Generate device ID (unique per patient)
@@ -265,9 +265,9 @@ def publish_encrypted_vitals(patient_data, anomaly_score):
                 "timestamp": patient_data['timestamp']
             }
             
-            encryption_status = "🔐 encrypted"
+            encryption_status = "encrypted"
         except Exception as e:
-            print(f"⚠️  Encryption failed: {e} - sending plain")
+            print(f"WARNING: Encryption failed: {e} - sending plain")
             mqtt_payload = {
                 "device_id": device_id,
                 "hospital": patient_data['hospital'],
@@ -275,7 +275,7 @@ def publish_encrypted_vitals(patient_data, anomaly_score):
                 "encrypted": False,
                 "vitals": vitals_payload
             }
-            encryption_status = "⚠️  plain"
+            encryption_status = "WARNING: plain"
     else:
         # Fallback to plain transmission
         mqtt_payload = {
@@ -285,7 +285,7 @@ def publish_encrypted_vitals(patient_data, anomaly_score):
             "encrypted": False,
             "vitals": vitals_payload
         }
-        encryption_status = "⚠️  plain"
+        encryption_status = "WARNING: plain"
     
     # Construct MQTT topic
     topic = MQTT_TOPIC_TEMPLATE.format(
@@ -298,13 +298,13 @@ def publish_encrypted_vitals(patient_data, anomaly_score):
     try:
         result = mqtt_client.publish(topic, json.dumps(mqtt_payload), qos=1)
         if result.rc == mqtt.MQTT_ERR_SUCCESS:
-            print(f"📤 {encryption_status} | {device_id} | Score: {anomaly_score:.2f} | Topic: {topic}")
+            print(f"{encryption_status} | {device_id} | Score: {anomaly_score:.2f} | Topic: {topic}")
             return True
         else:
-            print(f"❌ Publish failed: {result.rc}")
+            print(f"ERROR: Publish failed: {result.rc}")
             return False
     except Exception as e:
-        print(f"❌ MQTT publish error: {e}")
+        print(f"ERROR: MQTT publish error: {e}")
         return False
 
 
@@ -321,12 +321,12 @@ def simulate_traffic(file_path):
     time_diff_minutes = 1
 
     print(f"\n{'='*80}")
-    print(f"🚀 Starting Patient Simulator")
+    print(f"Starting Patient Simulator")
     print(f"{'='*80}")
     print(f"Sheets loaded: {len(sheet_names)}")
     print(f"MQTT Broker: {MQTT_BROKER}:{MQTT_PORT}")
-    print(f"Encryption: {'✅ Enabled' if CRYPTO_AVAILABLE else '❌ Disabled'}")
-    print(f"TLS: {'✅ Enabled' if USE_TLS else '❌ Disabled'}")
+    print(f"Encryption: {'Enabled' if CRYPTO_AVAILABLE else 'Disabled'}")
+    print(f"TLS: {'Enabled' if USE_TLS else 'Disabled'}")
     print(f"{'='*80}\n")
 
     # Initialize MQTT
@@ -357,7 +357,7 @@ def simulate_traffic(file_path):
                 time_diff_minutes += 1
 
         if not active:
-            print("\n✅ All rows processed.")
+            print("\nAll rows processed.")
             break
 
         row_index += 1
@@ -366,7 +366,7 @@ def simulate_traffic(file_path):
     if mqtt_client:
         mqtt_client.loop_stop()
         mqtt_client.disconnect()
-        print("🔌 Disconnected from MQTT broker")
+        print("Disconnected from MQTT broker")
 
 
 # Main
@@ -376,17 +376,17 @@ if __name__ == '__main__':
     # Startup delay to let other services initialize
     startup_delay = int(os.getenv('STARTUP_DELAY', '5'))
     if startup_delay > 0:
-        print(f"⏳ Waiting {startup_delay} seconds for services to start...")
+        print(f"Waiting {startup_delay} seconds for services to start...")
         time.sleep(startup_delay)
     
     try:
         simulate_traffic(file_path)
     except KeyboardInterrupt:
-        print("\n⚠️  Simulator stopped by user")
+        print("\nWARNING: Simulator stopped by user")
         if mqtt_client:
             mqtt_client.loop_stop()
             mqtt_client.disconnect()
     except Exception as e:
-        print(f"\n❌ Fatal error: {e}")
+        print(f"\nERROR: Fatal error: {e}")
         import traceback
         traceback.print_exc()

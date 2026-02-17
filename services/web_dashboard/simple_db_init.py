@@ -18,8 +18,8 @@ def create_simple_database():
     # Create instance directory if it doesn't exist
     os.makedirs(db_dir, exist_ok=True)
     
-    print("🏥 Creating Hospital Database...")
-    print(f"📁 Database location: {db_path}")
+    print("Creating Hospital Database...")
+    print(f"Database location: {db_path}")
     
     # Check if encryption is enabled
     ENABLE_DB_ENCRYPTION = os.getenv('ENABLE_DB_ENCRYPTION', 'false').lower() == 'true'
@@ -28,7 +28,7 @@ def create_simple_database():
     # Remove existing database if it exists
     if os.path.exists(db_path):
         os.remove(db_path)
-        print("🗑️  Removed existing database")
+        print("Removed existing database")
     
     # Try to use SQLCipher if encryption is enabled
     if ENABLE_DB_ENCRYPTION:
@@ -39,9 +39,9 @@ def create_simple_database():
             # Set encryption key
             cursor.execute(f"PRAGMA key = '{DB_ENCRYPTION_KEY}'")
             cursor.execute("PRAGMA cipher_page_size = 4096")
-            print("🔐 Using SQLCipher encryption")
+            print("Using SQLCipher encryption")
         except ImportError:
-            print("⚠️  SQLCipher not available, falling back to plain SQLite")
+            print("WARNING: SQLCipher not available, falling back to plain SQLite")
             import sqlite3
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
@@ -50,7 +50,7 @@ def create_simple_database():
         import sqlite3
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        print("📝 Using plain SQLite (encryption disabled)")
+        print("Using plain SQLite (encryption disabled)")
     
     try:
         # Create users table
@@ -124,27 +124,25 @@ def create_simple_database():
             )
         ''')
         
-        print("✅ Database tables created successfully!")
+        print("Database tables created successfully!")
         
-        # Optionally insert a default admin user. Set CREATE_DEFAULT_ADMIN=false to skip.
+        # Insert default admin user (password hash for 'admin')
         from werkzeug.security import generate_password_hash
-        CREATE_DEFAULT_ADMIN = os.getenv('CREATE_DEFAULT_ADMIN', 'true').lower() == 'true'
-        if CREATE_DEFAULT_ADMIN:
-            admin_password_hash = generate_password_hash('admin')
-            cursor.execute('''
-                INSERT INTO users (username, email, password_hash, first_name, last_name, role, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', ('admin', 'admin@hospital.com', admin_password_hash, 'System', 'Administrator', 'admin', 1))
-            print("👤 Created admin user: username=admin, password=admin")
-        else:
-            print("ℹ️  Skipping creation of default admin (CREATE_DEFAULT_ADMIN=false)")
+        admin_password_hash = generate_password_hash('admin')
+        
+        cursor.execute('''
+            INSERT INTO users (username, email, password_hash, first_name, last_name, role, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', ('admin', 'admin@hospital.com', admin_password_hash, 'System', 'Administrator', 'admin', 1))
+        
+        print("Created admin user: username=admin, password=admin")
         
         # Commit changes
         conn.commit()
-        print("💾 Database initialized successfully!")
+        print("Database initialized successfully!")
         
     except Exception as e:
-        print(f"❌ Error creating database: {e}")
+        print(f"ERROR: Error creating database: {e}")
         conn.rollback()
     finally:
         conn.close()

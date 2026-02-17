@@ -523,7 +523,7 @@ def api_save_encrypted_vitals():
                 'timestamp': timestamp_str or datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
             }, namespace='/')
         except Exception as emit_error:
-            print(f"⚠️  WebSocket emit failed: {emit_error}")
+            print(f"WARNING: WebSocket emit failed: {emit_error}")
         
         return jsonify({
             'status': 'success',
@@ -536,7 +536,7 @@ def api_save_encrypted_vitals():
     except Exception as e:
         import traceback
         error_detail = traceback.format_exc()
-        print(f"❌ Error saving encrypted vitals: {str(e)}")
+        print(f"ERROR: Error saving encrypted vitals: {str(e)}")
         print(error_detail)
         return jsonify({
             'status': 'error',

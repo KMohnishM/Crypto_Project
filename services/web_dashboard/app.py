@@ -40,10 +40,10 @@ def broadcast_vitals():
     import time as time_module
     
     # Wait for services to start
-    print("🔴 WebSocket broadcast thread waiting for services to start...")
+    print("WebSocket broadcast thread waiting for services to start...")
     time_module.sleep(10)
     
-    print("🔴 Starting WebSocket broadcast thread...")
+    print("Starting WebSocket broadcast thread...")
     consecutive_failures = 0
     max_failures_before_backoff = 3
     
@@ -61,18 +61,18 @@ def broadcast_vitals():
         except requests.exceptions.RequestException as e:
             consecutive_failures += 1
             if consecutive_failures <= max_failures_before_backoff:
-                print(f"⚠️ Error fetching vitals (attempt {consecutive_failures}): {str(e)[:100]}")
+                print(f"WARNING: Error fetching vitals (attempt {consecutive_failures}): {str(e)[:100]}")
             
             # Use exponential backoff after multiple failures
             if consecutive_failures >= max_failures_before_backoff:
                 sleep_time = min(30, 5 * (2 ** (consecutive_failures - max_failures_before_backoff)))
                 if consecutive_failures == max_failures_before_backoff:
-                    print(f"⚠️ Multiple failures, backing off to {sleep_time}s intervals...")
+                    print(f"WARNING: Multiple failures, backing off to {sleep_time}s intervals...")
                 time_module.sleep(sleep_time)
             else:
                 time_module.sleep(5)
         except Exception as e:
-            print(f"⚠️ Unexpected error in broadcast thread: {e}")
+            print(f"WARNING: Unexpected error in broadcast thread: {e}")
             time_module.sleep(10)
 
 # Start background thread
@@ -278,39 +278,35 @@ with app.app_context():
     try:
         # Try to create all tables
         db.create_all()
-        print("✅ Database tables created/verified")
+        print("Database tables created/verified")
         
         # Verify tables exist by checking if we can query users
         try:
             user_count = User.query.count()
             if user_count == 0:
-                # Optionally create default admin user
-                CREATE_DEFAULT_ADMIN = os.getenv('CREATE_DEFAULT_ADMIN', 'true').lower() == 'true'
-                if CREATE_DEFAULT_ADMIN:
-                    admin = User(
-                        username='admin',
-                        email='admin@hospital.com',
-                        first_name='System',
-                        last_name='Administrator',
-                        role='admin'
-                    )
-                    admin.set_password('admin')
-                    db.session.add(admin)
-                    db.session.commit()
-                    print("✅ Created default admin user: username=admin, password=admin")
-                else:
-                    print("ℹ️  Skipping creation of default admin (CREATE_DEFAULT_ADMIN=false)")
+                # Create admin user
+                admin = User(
+                    username='admin',
+                    email='admin@hospital.com',
+                    first_name='System',
+                    last_name='Administrator',
+                    role='admin'
+                )
+                admin.set_password('admin')
+                db.session.add(admin)
+                db.session.commit()
+                print("Created default admin user: username=admin, password=admin")
             else:
-                print(f"ℹ️  Database has {user_count} users already")
+                print(f"INFO: Database has {user_count} users already")
         except Exception as user_error:
             # Tables don't exist or can't be queried
-            print(f"⚠️  Could not verify/create admin user: {user_error}")
-            print("📝 Run: docker exec web_dashboard python simple_db_init.py")
-            print("📝 Or restart container to trigger automatic initialization")
+            print(f"WARNING: Could not verify/create admin user: {user_error}")
+            print("NOTE: Run: docker exec web_dashboard python simple_db_init.py")
+            print("NOTE: Or restart container to trigger automatic initialization")
             
     except Exception as db_error:
-        print(f"❌ Database initialization error: {db_error}")
-        print("📝 Run: docker exec web_dashboard python simple_db_init.py")
+        print(f"ERROR: Database initialization error: {db_error}")
+        print("NOTE: Run: docker exec web_dashboard python simple_db_init.py")
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)

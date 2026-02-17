@@ -19,7 +19,7 @@ try:
     from service_auth import require_service_auth, optional_service_auth
     AUTH_AVAILABLE = True
 except ImportError:
-    print("⚠️  WARNING: Service authentication not available - running in open mode")
+    print("WARNING: Service authentication not available - running in open mode")
     AUTH_AVAILABLE = False
     # Dummy decorator for when auth module is not available
     def require_service_auth(f):
@@ -87,14 +87,14 @@ def predict():
     if ENABLE_SERVICE_AUTH and AUTH_AVAILABLE:
         if hasattr(request, 'authenticated') and request.authenticated:
             service_name = getattr(request, 'service_name', 'unknown')
-            print(f"🔐 Authenticated request from: {service_name}")
+            print(f"Authenticated request from: {service_name}")
         else:
-            print(f"⚠️  Request without authentication (auth disabled, allowing)")
+            print(f"WARNING: Request without authentication (auth disabled, allowing)")
     else:
-        print(f"✅ Request received (authentication disabled)")
+        print(f"Request received (authentication disabled)")
     
     input_data = request.json
-    print(f"📊 Received prediction request with {len(input_data)} features")
+    print(f"Received prediction request with {len(input_data)} features")
 
     try:
         features = [input_data[feat] for feat in feature_names]
@@ -111,7 +111,7 @@ def predict():
     
     inference_time_ms = (time.time() - inference_start) * 1000
     
-    print(f"⏱️  ML inference time: {inference_time_ms:.3f}ms")
+    print(f"ML inference time: {inference_time_ms:.3f}ms")
     
     # Normalize score to 0-1 range
     # A reasonable range for decision_function is typically -0.5 to 0.5
@@ -135,15 +135,15 @@ def predict():
         "inference_time_ms": round(inference_time_ms, 3)
     }
     
-    print(f"✅ Prediction complete: anomaly_score={anomaly_score:.3f}")
+    print(f"Prediction complete: anomaly_score={anomaly_score:.3f}")
     
     return jsonify(response)
 
 if __name__ == "__main__":
     print("="*80)
-    print("🚀 ML Anomaly Detection Service")
+    print("ML Anomaly Detection Service")
     print("="*80)
-    print(f"Authentication: {'✅ ENABLED' if ENABLE_SERVICE_AUTH else '⚠️  DISABLED (Development Mode)'}")
+    print(f"Authentication: {'ENABLED' if ENABLE_SERVICE_AUTH else 'WARNING: DISABLED (Development Mode)'}")
     print(f"Model: {MODEL_FILENAME}")
     print("="*80)
     app.run(host="0.0.0.0", port=6000)

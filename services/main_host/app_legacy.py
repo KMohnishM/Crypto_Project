@@ -30,7 +30,7 @@ patient_data_store = defaultdict(list)
 @app.route('/track', methods=['POST'])
 def track_traffic():
     data = request.get_json()
-    print("💡 Received Payload:", data)  # 👈 Add this
+    print("Received Payload:", data)  # Add this
     
     hospital = data.get('hospital', 'unknown')
     dept = data.get('dept', 'unknown')
@@ -41,10 +41,10 @@ def track_traffic():
 
     for key, gauge in metrics.items():
         if key in data:
-            print(f"📌 Setting {key} = {data[key]} for labels {labels}")  # 👈 Add this
+            print(f"Setting {key} = {data[key]} for labels {labels}")  # Add this
             gauge.labels(**labels).set(data[key])
         else:
-            print(f"⚠️ {key} missing in payload")
+            print(f"WARNING: {key} missing in payload")
     
     # Store the data for the dashboard
     patient_key = f"{hospital}|{dept}|{ward}|{patient}"

@@ -29,7 +29,7 @@ def get_current_latencies() -> Dict:
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"❌ Error fetching latency data: {e}")
+        print(f"ERROR: Error fetching latency data: {e}")
         return {"status": "error", "latency_metrics": {}}
 
 
@@ -48,14 +48,14 @@ def get_prometheus_metric(query: str) -> float:
             return float(data["data"]["result"][0]["value"][1])
         return 0.0
     except Exception as e:
-        print(f"⚠️  Prometheus query failed: {e}")
+        print(f"WARNING: Prometheus query failed: {e}")
         return 0.0
 
 
 def display_latency_table(latency_data: Dict):
     """Display latency metrics in a formatted table"""
     if not latency_data.get("latency_metrics"):
-        print("⚠️  No latency data available\n")
+        print("WARNING: No latency data available\n")
         return
     
     print(f"{'Device ID':<15} {'Decrypt (ms)':<15} {'Process (ms)':<15} {'Network (ms)':<15} {'E2E (ms)':<15}")
@@ -70,11 +70,11 @@ def display_latency_table(latency_data: Dict):
         # Color coding based on thresholds
         e2e_str = f"{e2e:>6.1f}"
         if e2e > 1000:
-            e2e_str = f"🔴 {e2e_str}"
+            e2e_str = f"HIGH: {e2e_str}"
         elif e2e > 500:
-            e2e_str = f"🟡 {e2e_str}"
+            e2e_str = f"WARN: {e2e_str}"
         else:
-            e2e_str = f"🟢 {e2e_str}"
+            e2e_str = f"OK: {e2e_str}"
         
         print(f"{device_id:<15} {decrypt:>6.2f}        {process:>6.2f}        {network:>6.1f}        {e2e_str}")
     
@@ -103,9 +103,9 @@ def display_latency_breakdown(device_id: str = None):
                 print(f"  End-to-End:    {metrics['end_to_end_ms']:>8.1f} ms")
                 print()
             else:
-                print(f"❌ Device {device_id} not found\n")
+                print(f"ERROR: Device {device_id} not found\n")
         except Exception as e:
-            print(f"❌ Error: {e}\n")
+            print(f"ERROR: Error: {e}\n")
     else:
         # Show all devices
         display_latency_table(latency_data)
@@ -142,11 +142,11 @@ def display_prometheus_stats():
             warning = 10
         
         if value > threshold:
-            status = "🔴 HIGH"
+            status = "HIGH"
         elif value > warning:
-            status = "🟡 WARN"
+            status = "WARN"
         else:
-            status = "🟢 OK"
+            status = "OK"
         
         print(f"{name:<25} {value:>6.2f}         {status}")
     
@@ -168,7 +168,7 @@ def monitor_realtime(interval: int = 5):
             
             time.sleep(interval)
     except KeyboardInterrupt:
-        print("\n\n✅ Monitoring stopped\n")
+        print("\n\nMonitoring stopped\n")
 
 
 def display_latency_budget():
@@ -199,11 +199,11 @@ def display_latency_budget():
         
         util_str = f"{utilization:>5.1f}%"
         if utilization > 100:
-            util_str = f"🔴 {util_str}"
+            util_str = f"HIGH: {util_str}"
         elif utilization > 75:
-            util_str = f"🟡 {util_str}"
+            util_str = f"WARN: {util_str}"
         else:
-            util_str = f"🟢 {util_str}"
+            util_str = f"OK: {util_str}"
         
         print(f"{component:<25} {budget_ms:>6.1f}         {actual_ms:>6.1f}         {util_str}         {location}")
     
@@ -211,12 +211,12 @@ def display_latency_budget():
     print(f"{'TOTAL':<25} {total_budget:>6.1f}         {total_actual:>6.1f}         {(total_actual/total_budget)*100:>5.1f}%")
     
     margin = 1000 - total_actual
-    print(f"\n✅ Margin for critical alerts (< 1s target): {margin:.1f}ms")
+    print(f"\nMargin for critical alerts (< 1s target): {margin:.1f}ms")
     
     if total_actual < 1000:
-        print("✅ System is within latency budget for critical alerts!")
+        print("System is within latency budget for critical alerts!")
     else:
-        print("❌ System exceeds latency budget - optimization needed!")
+        print("ERROR: System exceeds latency budget - optimization needed!")
     
     print()
 
@@ -254,7 +254,7 @@ Examples:
     
     elif command == "device":
         if len(sys.argv) < 3:
-            print("❌ Error: Device ID required")
+            print("ERROR: Device ID required")
             print("Usage: python latency_monitor.py device <device_id>")
             sys.exit(1)
         device_id = sys.argv[2]
@@ -272,12 +272,12 @@ Examples:
             try:
                 interval = int(sys.argv[2])
             except ValueError:
-                print("❌ Error: Interval must be an integer")
+                print("ERROR: Interval must be an integer")
                 sys.exit(1)
         monitor_realtime(interval)
     
     else:
-        print(f"❌ Error: Unknown command '{command}'")
+        print(f"ERROR: Unknown command '{command}'")
         print("Run without arguments for usage information")
         sys.exit(1)
 

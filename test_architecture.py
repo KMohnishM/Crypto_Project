@@ -34,17 +34,17 @@ def test_header(name):
 def test_pass(message):
     global tests_passed
     tests_passed += 1
-    print(f"✅ {message}")
+    print(f"PASS: {message}")
 
 def test_fail(message, error=None):
     global tests_failed
     tests_failed += 1
-    print(f"❌ {message}")
+    print(f"FAIL: {message}")
     if error:
         print(f"   Error: {error}")
 
 def test_step(step_num, description):
-    print(f"\n🔹 Step {step_num}: {description}")
+    print(f"\nStep {step_num}: {description}")
 
 # ============================================================================
 # LAYER 1: Device-Level Encryption (Ascon-128)
@@ -88,7 +88,7 @@ try:
     }
     
     ciphertext, nonce, encrypt_time = crypto.encrypt(patient_vitals)
-    print(f"⏱️  Encryption time: {encrypt_time:.3f}ms")
+    print(f"Encryption time: {encrypt_time:.3f}ms")
     test_pass(f"Payload encrypted: {len(ciphertext)} bytes")
     print(f"   Original size: {len(str(patient_vitals))} bytes")
     print(f"   Encrypted size: {len(ciphertext)} bytes")
@@ -149,7 +149,7 @@ try:
     test_pass(f"MQTT message prepared")
     print(f"   Topic: {mqtt_topic}")
     print(f"   Payload size: {len(str(mqtt_payload))} bytes")
-    print(f"   🔒 Broker sees only ciphertext (end-to-end encryption)")
+    print(f"   Broker sees only ciphertext (end-to-end encryption)")
 except Exception as e:
     test_fail("MQTT payload preparation failed", e)
 
@@ -175,7 +175,7 @@ try:
     # Decrypt
     backend_crypto = AsconCrypto(backend_device_key)
     decrypted_vitals, decrypt_time = backend_crypto.decrypt(decoded_ct, decoded_nonce)
-    print(f"⏱️  Decryption time: {decrypt_time:.3f}ms")
+    print(f"Decryption time: {decrypt_time:.3f}ms")
     
     test_pass("Payload decrypted successfully")
     print(f"   Decrypted data: {decrypted_vitals}")
@@ -308,14 +308,14 @@ print("""
           │    • Certificate-based auth
           ▼    • Session keys
   ┌───────────────┐
-  │ MQTT Broker   │  🔒 Sees only ciphertext
+  │ MQTT Broker   │  Sees only ciphertext
   │  (Mosquitto)  │     • Cannot decrypt payload
   └───────┬───────┘     • Routes encrypted messages
           │
           │ ③ MQTT/TLS Subscriber
           ▼
   ┌───────────────┐
-  │   Backend     │  🔓 Decrypt with K_device
+  │   Backend     │  Decrypt with K_device
   │  (Main Host)  │     • Verify auth tag
   └───────┬───────┘     • Detect tampering
           │
@@ -323,16 +323,16 @@ print("""
           │    • Service-to-service
           ▼    • HS256 tokens
   ┌───────────────┐
-  │  ML Service   │  🤖 Anomaly Detection
+  │  ML Service   │  Anomaly Detection
   │  (Protected)  │     • Authenticated API
   └───────────────┘
 
 KEY SECURITY PROPERTIES:
-  ✅ End-to-End Encryption: Broker cannot read patient data
-  ✅ Per-Device Keys: Compromise of one device doesn't affect others
-  ✅ Authentication Tags: Tampering detected and rejected
-  ✅ Defense in Depth: Multiple independent security layers
-  ✅ Key Isolation: Transport keys ≠ Payload keys
+  End-to-End Encryption: Broker cannot read patient data
+  Per-Device Keys: Compromise of one device doesn't affect others
+  Authentication Tags: Tampering detected and rejected
+  Defense in Depth: Multiple independent security layers
+  Key Isolation: Transport keys ≠ Payload keys
 """)
 
 # ============================================================================
@@ -345,26 +345,26 @@ print("="*70)
 total = tests_passed + tests_failed
 percentage = (tests_passed / total * 100) if total > 0 else 0
 
-print(f"\n  📊 Test Results:")
+print(f"\n  Test Results:")
 print(f"     Total Tests:  {total}")
-print(f"     ✅ Passed:    {tests_passed}")
-print(f"     ❌ Failed:    {tests_failed}")
+print(f"     Passed:    {tests_passed}")
+print(f"     Failed:    {tests_failed}")
 print(f"     Success Rate: {percentage:.1f}%")
 
-print(f"\n  🛡️  Security Layers Validated:")
-print(f"     ✅ Layer 1: Device Encryption (Ascon-128)")
-print(f"     ✅ Layer 2: Transport Security (TLS 1.2)")
-print(f"     ✅ Layer 3: Backend Decryption & Integrity")
-print(f"     ✅ Layer 4: Service Authentication (JWT)")
-print(f"     ✅ Layer 5: Configuration & Integration")
+print(f"\n  Security Layers Validated:")
+print(f"     Layer 1: Device Encryption (Ascon-128)")
+print(f"     Layer 2: Transport Security (TLS 1.2)")
+print(f"     Layer 3: Backend Decryption & Integrity")
+print(f"     Layer 4: Service Authentication (JWT)")
+print(f"     Layer 5: Configuration & Integration")
 
-print(f"\n  🚀 Ready for Deployment:")
+print(f"\n  Ready for Deployment:")
 if tests_failed == 0:
-    print(f"     ✅ All security layers operational")
-    print(f"     ✅ Architecture matches design document")
-    print(f"     ✅ System ready for production deployment")
+    print(f"     All security layers operational")
+    print(f"     Architecture matches design document")
+    print(f"     System ready for production deployment")
 else:
-    print(f"     ⚠️  Review {tests_failed} failed test(s) above")
+    print(f"     WARNING: Review {tests_failed} failed test(s) above")
 
 print("\n" + "="*70)
 print()

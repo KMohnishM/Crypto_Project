@@ -21,19 +21,19 @@ function initWebSocket() {
     
     // Connection events
     socket.on('connect', function() {
-        console.log('✅ Socket.IO connected (polling transport)');
+        console.log('Socket.IO connected (polling transport)');
         connectionStatus = 'connected';
         updateConnectionStatus(true);
     });
     
     socket.on('disconnect', function() {
-        console.log('❌ Socket.IO disconnected');
+        console.log('Socket.IO disconnected');
         connectionStatus = 'disconnected';
         updateConnectionStatus(false);
     });
     
     socket.on('connect_error', function(error) {
-        console.error('🔴 Socket.IO connection error:', error);
+        console.error('Socket.IO connection error:', error);
         connectionStatus = 'error';
         updateConnectionStatus(false);
     });
@@ -67,7 +67,7 @@ function updateConnectionStatus(isConnected) {
     const indicator = document.getElementById('websocket-status');
     if (indicator) {
         if (isConnected) {
-            indicator.innerHTML = '<span class="badge badge-success">🔴 Live</span>';
+            indicator.innerHTML = '<span class="badge badge-success">LIVE</span>';
             indicator.title = 'Real-time updates active';
         } else {
             indicator.innerHTML = '<span class="badge badge-secondary">⏸️ Offline</span>';
@@ -159,7 +159,7 @@ function showAnomalyNotification(patient_id, anomaly_score, vitals) {
     notification.className = 'alert alert-danger alert-dismissible fade show position-fixed';
     notification.style.cssText = 'top: 80px; right: 20px; z-index: 9999; min-width: 300px;';
     notification.innerHTML = `
-        <strong>⚠️ Critical Alert: Patient ${patient_id}</strong>
+        <strong>WARNING: Critical Alert: Patient ${patient_id}</strong>
         <p class="mb-1">Anomaly Score: ${anomaly_score.toFixed(2)}</p>
         <small>HR: ${vitals.heart_rate} | SpO2: ${vitals.spo2}%</small>
         <button type="button" class="close" data-dismiss="alert">&times;</button>
@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof io !== 'undefined') {
         initWebSocket();
     } else {
-        console.error('❌ Socket.IO library not loaded. Please include socket.io.js in your HTML.');
+        console.error('ERROR: Socket.IO library not loaded. Please include socket.io.js in your HTML.');
     }
 });
 

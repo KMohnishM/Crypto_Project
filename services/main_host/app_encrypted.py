@@ -26,7 +26,7 @@ try:
     from crypto_utils import AsconCrypto, KeyManager, decode_payload
     CRYPTO_AVAILABLE = True
 except ImportError:
-    print("⚠️  WARNING: Crypto utilities not available")
+    print("WARNING: Crypto utilities not available")
     CRYPTO_AVAILABLE = False
 
 app = Flask(__name__)
@@ -50,9 +50,9 @@ key_manager = None
 if CRYPTO_AVAILABLE:
     try:
         key_manager = KeyManager("/app/keys/backend_keys.json")
-        print("🔑 Backend key manager initialized")
+        print("Backend key manager initialized")
     except Exception as e:
-        print(f"⚠️  Key manager initialization failed: {e}")
+        print(f"WARNING: Key manager initialization failed: {e}")
 
 # Define Gauges (current value metrics)
 metrics = {
@@ -138,15 +138,15 @@ def call_ml_service(vitals_data):
         if response.status_code == 200:
             result = response.json()
             anomaly_score = result.get('normalized_score', 0.0)
-            logging.info(f"🧠 ML inference: {ml_latency_ms:.2f}ms, Score: {anomaly_score:.3f}")
+            logging.info(f"ML inference: {ml_latency_ms:.2f}ms, Score: {anomaly_score:.3f}")
             return anomaly_score, ml_latency_ms
         else:
-            logging.warning(f"⚠️ ML service returned {response.status_code}")
+            logging.warning(f"WARNING: ML service returned {response.status_code}")
             return 0.0, ml_latency_ms
             
     except Exception as e:
         ml_latency_ms = (time.time() - ml_start_time) * 1000
-        logging.error(f"❌ ML service error: {e}")
+        logging.error(f"ERROR: ML service error: {e}")
         return 0.0, ml_latency_ms
 
 
@@ -195,14 +195,14 @@ def save_vitals_to_database(vitals, hospital, dept, ward, patient_id):
         response = requests.post(api_url, json=payload, timeout=2)
         
         if response.status_code == 200:
-            logging.debug(f"💾 Saved encrypted vitals to DB: Patient {patient_id}")
+            logging.debug(f"Saved encrypted vitals to DB: Patient {patient_id}")
             return True
         else:
-            logging.warning(f"⚠️ DB save failed: {response.status_code}")
+            logging.warning(f"WARNING: DB save failed: {response.status_code}")
             return False
             
     except Exception as e:
-        logging.error(f"❌ Database save error: {e}")
+        logging.error(f"ERROR: Database save error: {e}")
         return False
 
 
@@ -286,7 +286,7 @@ def on_mqtt_message(client, userdata, msg):
             security_metrics['encrypted_messages'].inc()
             
             if not CRYPTO_AVAILABLE or not key_manager:
-                logging.error("🔴 Received encrypted data but crypto not available")
+                logging.error("ERROR: Received encrypted data but crypto not available")
                 security_metrics['decryption_failure'].labels(
                     device_id=device_id, 
                     reason='crypto_unavailable'
@@ -312,7 +312,7 @@ def on_mqtt_message(client, userdata, msg):
                 # Record decryption latency
                 latency_metrics['decryption'].labels(device_id=device_id).observe(decryption_time_ms)
                 
-                logging.info(f"🔓 Decrypted vitals from {device_id} | Patient: {patient_id} | "
+                logging.info(f"Decrypted vitals from {device_id} | Patient: {patient_id} | "
                            f"Decrypt: {decryption_time_ms:.2f}ms | Network: {network_latency_ms:.1f}ms")
                 security_metrics['decryption_success'].labels(device_id=device_id).inc()
                 
@@ -321,14 +321,14 @@ def on_mqtt_message(client, userdata, msg):
                 current_latency[device_id]['network'] = network_latency_ms
                 
             except ValueError as e:
-                logging.error(f"🔴 Authentication failed for {device_id}: {e}")
+                logging.error(f"ERROR: Authentication failed for {device_id}: {e}")
                 security_metrics['decryption_failure'].labels(
                     device_id=device_id, 
                     reason='auth_failed'
                 ).inc()
                 return  # Drop tampered/invalid data
             except Exception as e:
-                logging.error(f"🔴 Decryption error for {device_id}: {e}")
+                logging.error(f"ERROR: Decryption error for {device_id}: {e}")
                 security_metrics['decryption_failure'].labels(
                     device_id=device_id, 
                     reason='decryption_error'
@@ -338,13 +338,13 @@ def on_mqtt_message(client, userdata, msg):
             # Handle plain payload (development/fallback mode)
             security_metrics['plain_messages'].inc()
             vitals = mqtt_payload.get('vitals', {})
-            logging.warning(f"⚠️  Received PLAIN data from {device_id} (security risk!)")
+            logging.warning(f"WARNING: Received PLAIN data from {device_id} (security risk!)")
         
         # NEW: Call ML service if anomaly_score not present
         if 'anomaly_score' not in vitals or vitals.get('anomaly_score') == 0:
             anomaly_score, ml_latency = call_ml_service(vitals)
             vitals['anomaly_score'] = anomaly_score
-            logging.info(f"🧠 Backend ML call: {ml_latency:.2f}ms, Score: {anomaly_score:.3f}")
+            logging.info(f"Backend ML call: {ml_latency:.2f}ms, Score: {anomaly_score:.3f}")
         
         # NEW: Save encrypted vitals to database (PATH 2)
         save_vitals_to_database(vitals, hospital, dept, ward, patient_id)
@@ -368,9 +368,9 @@ def on_mqtt_message(client, userdata, msg):
         current_latency[device_id]['processing'] = processing_time_ms
         
     except json.JSONDecodeError as e:
-        logging.error(f"🔴 Invalid JSON from MQTT: {e}")
+        logging.error(f"ERROR: Invalid JSON from MQTT: {e}")
     except Exception as e:
-        logging.error(f"🔴 Error processing MQTT message: {e}")
+        logging.error(f"ERROR: Error processing MQTT message: {e}")
         import traceback
         traceback.print_exc()
 
@@ -381,14 +381,14 @@ def on_mqtt_connect(client, userdata, flags, rc):
     if rc == 0:
         mqtt_connected = True
         tls_status = "with TLS" if USE_TLS else "plain"
-        logging.info(f"✅ Backend connected to MQTT broker ({tls_status})")
+        logging.info(f"Backend connected to MQTT broker ({tls_status})")
         
         # Subscribe to all hospital topics
         client.subscribe("hospital/#")
-        logging.info("📬 Subscribed to topic: hospital/#")
+        logging.info("Subscribed to topic: hospital/#")
     else:
         mqtt_connected = False
-        logging.error(f"❌ MQTT connection failed with code {rc}")
+        logging.error(f"ERROR: MQTT connection failed with code {rc}")
 
 
 def on_mqtt_disconnect(client, userdata, rc):
@@ -396,7 +396,7 @@ def on_mqtt_disconnect(client, userdata, rc):
     global mqtt_connected
     mqtt_connected = False
     if rc != 0:
-        logging.warning(f"⚠️  Unexpected MQTT disconnection (code: {rc})")
+        logging.warning(f"WARNING: Unexpected MQTT disconnection (code: {rc})")
 
 
 def init_mqtt_subscriber():
@@ -416,20 +416,20 @@ def init_mqtt_subscriber():
                     cert_reqs=ssl.CERT_REQUIRED,
                     tls_version=ssl.PROTOCOL_TLSv1_2
                 )
-                logging.info(f"🔐 TLS configured - connecting to {MQTT_BROKER}:{MQTT_PORT}")
+                logging.info(f"TLS configured - connecting to {MQTT_BROKER}:{MQTT_PORT}")
                 mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
             except Exception as e:
-                logging.error(f"❌ TLS connection failed: {e}")
-                logging.info(f"⚠️  Falling back to plain MQTT on port {MQTT_PORT_PLAIN}")
+                logging.error(f"ERROR: TLS connection failed: {e}")
+                logging.info(f"WARNING: Falling back to plain MQTT on port {MQTT_PORT_PLAIN}")
                 mqtt_client.connect(MQTT_BROKER, MQTT_PORT_PLAIN, 60)
         else:
-            logging.warning(f"⚠️  Connecting to plain MQTT on port {MQTT_PORT_PLAIN}")
+            logging.warning(f"WARNING: Connecting to plain MQTT on port {MQTT_PORT_PLAIN}")
             mqtt_client.connect(MQTT_BROKER, MQTT_PORT_PLAIN, 60)
         
         mqtt_client.loop_forever()
         
     except Exception as e:
-        logging.error(f"❌ MQTT subscriber initialization failed: {e}")
+        logging.error(f"ERROR: MQTT subscriber initialization failed: {e}")
 
 
 # Flask Routes
@@ -441,7 +441,7 @@ def track_traffic():
     New devices should use MQTT instead
     """
     data = request.get_json()
-    logging.info("💡 Received HTTP payload (legacy mode)")
+    logging.info("Received HTTP payload (legacy mode)")
     
     hospital = data.get('hospital', 'unknown')
     dept = data.get('dept', 'unknown')
@@ -461,8 +461,8 @@ def metrics_endpoint():
 
 @app.route('/')
 def root():
-    status = "🔐 Secure" if CRYPTO_AVAILABLE else "⚠️  Plain"
-    mqtt_status = "✅ Connected" if mqtt_connected else "❌ Disconnected"
+    status = "Secure" if CRYPTO_AVAILABLE else "WARNING: Plain"
+    mqtt_status = "Connected" if mqtt_connected else "ERROR: Disconnected"
     return f"""
     <h1>Hospital Monitoring Service</h1>
     <p><strong>Status:</strong> {status}</p>
@@ -592,9 +592,9 @@ if __name__ == '__main__':
     mqtt_thread = threading.Thread(target=init_mqtt_subscriber, daemon=True)
     mqtt_thread.start()
     
-    logging.info("🚀 Starting Main Host Backend")
-    logging.info(f"   Encryption: {'✅ Enabled' if CRYPTO_AVAILABLE else '❌ Disabled'}")
-    logging.info(f"   TLS: {'✅ Enabled' if USE_TLS else '❌ Disabled'}")
+    logging.info("Starting Main Host Backend")
+    logging.info(f"   Encryption: {'Enabled' if CRYPTO_AVAILABLE else 'Disabled'}")
+    logging.info(f"   TLS: {'Enabled' if USE_TLS else 'Disabled'}")
     
     # Start Flask app
     app.run(host='0.0.0.0', port=8000)

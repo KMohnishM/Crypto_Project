@@ -44,13 +44,13 @@ def init_encrypted_db(app):
                 cursor.execute("PRAGMA cipher_page_size = 4096")
                 cursor.close()
             
-            print("🔐 Database encryption ENABLED (SQLCipher)")
+            print("Database encryption ENABLED (SQLCipher)")
             
         except ImportError:
-            print("⚠️  SQLCipher not available - using plain SQLite")
+            print("WARNING: SQLCipher not available - using plain SQLite")
             print("   Install with: pip install pysqlcipher3")
     else:
-        print("⚠️  Database encryption DISABLED (set ENABLE_DB_ENCRYPTION=true to enable)")
+        print("WARNING: Database encryption DISABLED (set ENABLE_DB_ENCRYPTION=true to enable)")
     
     # Initialize database
     db.init_app(app)

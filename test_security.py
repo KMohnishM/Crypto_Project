@@ -19,12 +19,12 @@ def test_header(name):
 def test_pass(message):
     global tests_passed
     tests_passed += 1
-    print(f"✅ PASS: {message}")
+    print(f"PASS: {message}")
 
 def test_fail(message, error=None):
     global tests_failed
     tests_failed += 1
-    print(f"❌ FAIL: {message}")
+    print(f"FAIL: {message}")
     if error:
         print(f"   Error: {error}")
 
@@ -260,17 +260,17 @@ def print_summary():
     percentage = (tests_passed / total * 100) if total > 0 else 0
     
     print(f"\n  Total Tests:  {total}")
-    print(f"  ✅ Passed:    {tests_passed}")
-    print(f"  ❌ Failed:    {tests_failed}")
+    print(f"  Passed:    {tests_passed}")
+    print(f"  ERROR: Failed:    {tests_failed}")
     print(f"  Success Rate: {percentage:.1f}%")
     print()
     
     if tests_failed == 0:
-        print("  🎉 ALL TESTS PASSED! System is ready for deployment.")
+        print("  ALL TESTS PASSED! System is ready for deployment.")
     elif percentage >= 80:
-        print("  ⚠️  Most tests passed. Check failures above.")
+        print("  WARNING: Most tests passed. Check failures above.")
     else:
-        print("  ❌ Multiple failures detected. Review implementation.")
+        print("  ERROR: Multiple failures detected. Review implementation.")
     
     print(f"{'='*70}\n")
     

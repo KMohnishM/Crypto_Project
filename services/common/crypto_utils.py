@@ -12,7 +12,7 @@ import time
 try:
     import ascon
 except ImportError:
-    print("⚠️  WARNING: ascon library not installed. Run: pip install ascon")
+    print("WARNING: ascon library not installed. Run: pip install ascon")
     ascon = None
 
 
@@ -134,7 +134,7 @@ class KeyManager:
                 with open(self.key_file, 'r') as f:
                     return json.load(f)
             except Exception as e:
-                print(f"⚠️  Error loading keys: {e}")
+                print(f"ERROR: Error loading keys: {e}")
                 return {}
         return {}
     
@@ -146,7 +146,7 @@ class KeyManager:
             # Set restrictive permissions (Windows compatible)
             os.chmod(self.key_file, 0o600)
         except Exception as e:
-            print(f"⚠️  Error saving keys: {e}")
+            print(f"ERROR: Error saving keys: {e}")
     
     def provision_device(self, device_id: str) -> str:
         """
@@ -159,7 +159,7 @@ class KeyManager:
             Hex-encoded 128-bit key
         """
         if device_id in self.keys:
-            print(f"⚠️  Device {device_id} already provisioned")
+            print(f"WARNING: Device {device_id} already provisioned")
             return self.keys[device_id]['key']
         
         # Generate cryptographically secure random key
@@ -172,7 +172,7 @@ class KeyManager:
         }
         
         self._save_keys()
-        print(f"✅ Provisioned device: {device_id}")
+        print(f"Provisioned device: {device_id}")
         return new_key
     
     def get_device_key(self, device_id: str) -> str:
@@ -188,7 +188,7 @@ class KeyManager:
         Note: Auto-provisions if device not found (development mode)
         """
         if device_id not in self.keys:
-            print(f"🔑 Auto-provisioning new device: {device_id}")
+            print(f"Auto-provisioning new device: {device_id}")
             return self.provision_device(device_id)
         
         device_info = self.keys[device_id]
@@ -209,7 +209,7 @@ class KeyManager:
             self.keys[device_id]['status'] = 'revoked'
             self.keys[device_id]['revoked_at'] = self._get_timestamp()
             self._save_keys()
-            print(f"🚫 Revoked device: {device_id}")
+            print(f"Revoked device: {device_id}")
     
     def rotate_key(self, device_id: str) -> str:
         """
@@ -238,7 +238,7 @@ class KeyManager:
         }
         
         self._save_keys()
-        print(f"🔄 Rotated key for device: {device_id}")
+        print(f"Rotated key for device: {device_id}")
         return new_key
     
     def list_devices(self) -> list:
@@ -289,7 +289,7 @@ def decode_payload(encoded: Dict[str, str]) -> Tuple[bytes, bytes]:
 
 # Example usage and testing
 if __name__ == "__main__":
-    print("🧪 Testing Ascon Crypto...")
+    print("Testing Ascon Crypto...")
     
     # Initialize key manager
     km = KeyManager("test_keys.json")
@@ -314,11 +314,11 @@ if __name__ == "__main__":
     
     # Encrypt
     ciphertext, nonce, encrypt_time = crypto.encrypt(test_payload)
-    print(f"✅ Encrypted: {len(ciphertext)} bytes (took {encrypt_time:.3f}ms)")
+    print(f"Encrypted: {len(ciphertext)} bytes (took {encrypt_time:.3f}ms)")
     
     # Encode for transmission
     encoded = encode_payload(ciphertext, nonce)
-    print(f"📤 Encoded for MQTT: {len(encoded['ciphertext'])} chars")
+    print(f"Encoded for MQTT: {len(encoded['ciphertext'])} chars")
     print(f"{encoded}")
     
     # Decode
@@ -326,8 +326,8 @@ if __name__ == "__main__":
     
     # Decrypt
     decrypted, decrypt_time = crypto.decrypt(decoded_ct, decoded_nonce)
-    print(f"✅ Decrypted: {decrypted} (took {decrypt_time:.3f}ms)")
+    print(f"Decrypted: {decrypted} (took {decrypt_time:.3f}ms)")
     
     # Verify
     assert decrypted == test_payload
-    print("✅ All tests passed!")
+    print("All tests passed!")

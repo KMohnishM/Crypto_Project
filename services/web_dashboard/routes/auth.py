@@ -11,6 +11,7 @@ auth = Blueprint('auth', __name__)
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('main.index'))
+        
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -18,14 +19,9 @@ def login():
         
         user = User.query.filter_by(username=username).first()
         
-        # If user does not exist, redirect to registration
-        if not user:
-            flash('Account not found. Please register first.')
-            return redirect(url_for('auth.register'))
-
-        # If user exists but password is wrong, stay on login
-        if not user.check_password(password):
-            flash('Incorrect password. Please try again.')
+        # Check if user exists and password is correct
+        if not user or not user.check_password(password):
+            flash('Please check your login details and try again.')
             return redirect(url_for('auth.login'))
             
         # If user exists and is inactive
